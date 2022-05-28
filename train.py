@@ -50,19 +50,11 @@ from utils.plots import plot_labels_rotate
 from utils.torch_utils import ModelEMA, de_parallel, select_device, torch_distributed_zero_first
 
 
-# from models.s2anet import S2ANet as Model
-from models.s2anet_MA import S2ANet as Model
-# from models.s2anet_conf import S2ANet as Model
-# from models.retinanet import RetinaNet as Model
+from models.s2anet import S2ANet as Model
 
 
 from utils.datasets_rotation import plot_rotate_boxes
 from utils.general import rotated_box_to_poly_np
-
-# # 对OpenCV的版本进行约束，要求是4.5.1-4.5.5版本之间，
-# import cv2
-# cv_version = cv2.__version__
-# assert "4.5" in cv_version and int(cv_version.split('.')[-1]) >= 1
 
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))  # https://pytorch.org/docs/stable/elastic/run.html
 RANK = int(os.getenv('RANK', -1))
@@ -80,8 +72,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
     # 是否使用混合精度训练
     is_MAP = opt.is_MAP
-    # 是否使用模型平滑
-    is_EMA = opt.is_EMA
 
     # Directories
     w = save_dir / 'weights'  # weights dir
@@ -154,27 +144,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         # 建立模型结构，并进行初始化，不使用预训练的检测模型
         model = Model(num_classes=num_classes).to(device) # create
 
-    # print(model)
-    # exit()
-
-    # for k,v in model.state_dict().items():
-    #     if 'bn' in k:
-    #         print(k ,v)
-    # exit()
-
-    # # model.eval()
-    # model.train()
-    # for k,v in model.named_modules():
-    #     print(k, v.training)
-    # exit()
-
-    # # Freeze
-    # freeze = [f'model.{x}.' for x in (freeze if len(freeze) > 1 else range(freeze[0]))]  # layers to freeze
-    # for k, v in model.named_parameters():
-    #     v.requires_grad = True  # train all layers
-    #     if any(x in k for x in freeze):
-    #         LOGGER.info(f'freezing {k}')
-    #         v.requires_grad = False
 
     # Image size
     # gs = max(int(model.stride.max()), 32)  # grid size (max stride)
@@ -234,7 +203,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
     # EMA
     ema = ModelEMA(model) if RANK in [-1, 0] else None
-    # ema = ModelEMA(model) if (is_EMA and (RANK in [-1, 0])) else None
 
     # Resume
     start_epoch, best_fitness = 0, 0.0
@@ -419,10 +387,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             # Forward
             with amp.autocast(enabled=is_MAP):
                 # 混合精度训练，要求输入图像和模型都是torch.float32类型
-                
-                # 原始代码
-                # pred = model(imgs)  # forward
-                # loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
                 # 改为S2ANet代码
                 loss, loss_items = model(imgs, targets.to(device))
                 # print(loss)
@@ -482,7 +446,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         if RANK in [-1, 0]:
             # mAP
             callbacks.run('on_train_epoch_end', epoch=epoch)
-            # if is_EMA:
             ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'names', 'stride', 'class_weights'])
             final_epoch = epoch + 1 == epochs
             # 10个epoch后，再进行验证，因为初始阶段的分类损失不够低，验证的时间特别长
@@ -492,7 +455,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                                            batch_size=batch_size // WORLD_SIZE * 2,
                                            imgsz=imgsz,
                                            model=ema.ema,
-                                        #    model=ema.ema if is_EMA else model,
                                            single_cls=single_cls,
                                            dataloader=val_loader,
                                            save_dir=save_dir,
@@ -511,8 +473,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                 ckpt = {'epoch': epoch,
                         'best_fitness': best_fitness,
                         'model': deepcopy(de_parallel(model)).half(),
-                        # 'ema': deepcopy(ema.ema).half() if is_EMA else None,
-                        # 'updates': ema.updates if is_EMA else None,
                         'ema': deepcopy(ema.ema).half(),
                         'updates': ema.updates,
                         'optimizer': optimizer.state_dict(),
@@ -602,8 +562,7 @@ def parse_opt(known=False):
     parser.add_argument('--is_mAP_split', action='store_true', default=True)
     # 是否使用混合精度训练，automatic mixed-precision training
     parser.add_argument('--is_MAP', action='store_true', default=True)
-    # 是否使用模型平滑
-    parser.add_argument('--is_EMA', action='store_true', default=True)
+
 
     
     parser.add_argument('--device', default='2', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
