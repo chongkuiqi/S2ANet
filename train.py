@@ -144,8 +144,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     gs = max(max(model.stride), 128)  # grid size (max stride)
     imgsz = check_img_size(opt.imgsz, gs, floor=gs * 2)  # verify imgsz is gs-multiple
 
-    # Batch size
-    loggers.on_params_update({"batch_size": batch_size})
 
     # Optimizer
     nominal_bs = opt.nominal_bs  # nominal batch size
