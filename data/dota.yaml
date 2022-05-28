@@ -1,0 +1,39 @@
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# COCO 2017 dataset http://cocodataset.org by Microsoft
+# Example usage: python train.py --data coco.yaml
+# parent
+# ├── yolov5
+# └── datasets
+#     └── coco  ← downloads here
+
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: /home/lab/ckq/DOTA_split/  # dataset root dir
+# train: train.txt  # train images (relative to 'path') 118287 images
+# val: val.txt  # val images (relative to 'path') 5000 images
+# test: val.txt  # 20288 of 40670 images, submit to https://competitions.codalab.org/competitions/20794
+train: train/images/  # train images (relative to 'path') 118287 images
+val: val/images/  # val images (relative to 'path') 5000 images
+test: val/images/  # 20288 of 40670 images, submit to https://competitions.codalab.org/competitions/20794
+
+
+
+## 针对DOTA的验证、测试的程序，需要提供验证集和测试集的完整图像和标签的路径
+# 验证集的、完整图像的标签的路径
+val_complete_imgs_gt_path: /home/lab/ckq/DOTA/val/labelTxt/
+val_complete_imgs_ls_txt_path: /home/lab/ckq/DOTA/val/val.txt
+
+
+val_split_imgs_gt_path: /home/lab/ckq/DOTA_split/val/labelTxt/
+val_split_imgs_ls_txt_path: /home/lab/ckq/DOTA_split/val/val_split.txt
+
+
+# Classes
+nc: 15  # number of classes
+names: ['plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+        'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
+        'basketball-court', 'storage-tank', 'soccer-ball-field', 'roundabout',
+        'harbor', 'swimming-pool', 'helicopter']  # class names
+
+
+

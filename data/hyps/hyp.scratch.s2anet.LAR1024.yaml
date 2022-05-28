@@ -1,0 +1,48 @@
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# Hyperparameters for COCO training from scratch
+# python train.py --batch 40 --cfg yolov5m.yaml --weights '' --data coco.yaml --img 640 --epochs 300
+# See tutorials for hyperparameter evolution https://github.com/ultralytics/yolov5#tutorials
+
+# 官方设置，batch_size=2, 0.01lr=0.0025lr*4GPU, 0.0025lr=0.0025lr*1GPU, 0.02lr=0.0025lr*8GPU
+# 一张卡，每张卡8张图像，则学习率应为0.01
+lr0: 0.005  # initial learning rate (SGD=1E-2, Adam=1E-3)
+lrf: 0.005  # final OneCycleLR learning rate (lr0 * lrf)
+momentum: 0.9  # SGD momentum/Adam beta1
+weight_decay: 0.0001  # optimizer weight decay 5e-4
+# warmup_epochs: 3.0  # warmup epochs (fractions ok)
+warmup_iters: 500  # 最大的warmup的迭代次数，与warmup_epochs确定的迭代次数相比较，最终warmup的迭代次数取两者间最大的
+
+warmup_momentum: 0.8  # warmup initial momentum
+warmup_bias_lr: 0.0  # warmup initial bias lr
+
+# focal-loss的参数
+fl_gamma: 2.0  # focal loss gamma (efficientDet default gamma=1.5)
+fl_alpha: 0.5  # focal loss gamma (efficientDet default gamma=1.5)
+
+# hsv_h: 0.015  # image HSV-Hue augmentation (fraction)
+# hsv_s: 0.7  # image HSV-Saturation augmentation (fraction)
+# hsv_v: 0.4  # image HSV-Value augmentation (fraction)
+# degrees: 1.0  # image rotation (+/- deg)
+# translate: 0.1  # image translation (+/- fraction)
+# scale: 0.3  # image scale (+/- gain)
+# shear: 0.0  # image shear (+/- deg)
+# perspective: 0.0  # image perspective (+/- fraction), range 0-0.001
+# flipud: 0.5  # image flip up-down (probability)
+# fliplr: 0.5  # image flip left-right (probability)
+# mosaic: 0.0  # image mosaic (probability)
+# mixup: 0.0  # image mixup (probability)
+# copy_paste: 0.0  # segment copy-paste (probability)
+
+hsv_h: 0.0  # image HSV-Hue augmentation (fraction)
+hsv_s: 0.0  # image HSV-Saturation augmentation (fraction)
+hsv_v: 0.0  # image HSV-Value augmentation (fraction)
+degrees: 0.0  # image rotation (+/- deg)
+translate: 0.0  # image translation (+/- fraction)
+scale: 0.0  # image scale (+/- gain)
+shear: 0.0  # image shear (+/- deg)
+perspective: 0.0  # image perspective (+/- fraction), range 0-0.001
+flipud: 0.0  # image flip up-down (probability)
+fliplr: 0.5  # image flip left-right (probability)
+mosaic: 0.0  # image mosaic (probability)
+mixup: 0.0  # image mixup (probability)
+copy_paste: 0.0  # segment copy-paste (probability)
