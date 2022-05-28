@@ -72,20 +72,6 @@ setup(
             sources=['src/nms_rotated_cpu.cpp', 'src/nms_rotated_cuda.cu']),
         
 
-        ## focal loss
-        make_cuda_ext(
-            name='sigmoid_focal_loss_cuda',
-            module='utils.sigmoid_focal_loss',
-            sources=[
-                'src/sigmoid_focal_loss.cpp',
-                'src/sigmoid_focal_loss_cuda.cu'
-            ]),
-
-        # 旋转iou loss
-        make_cuda_ext(
-                name='sort_vertices_cuda',
-                module='utils.box_iou_rotated_diff',
-                sources=['src/sort_vert.cpp', 'src/sort_vert_kernel.cu',]),
     ],
         
     #  cmdclass 为python setup.py build_ext命令,指定为BuildExtension
