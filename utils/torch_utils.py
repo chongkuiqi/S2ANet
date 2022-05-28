@@ -287,15 +287,6 @@ class ModelEMA:
         # Create EMA
         self.ema = deepcopy(de_parallel(model)).eval()  # FP32 EMA
 
-        # from models.s2anet_MA import S2ANet as Model
-        # # device = next(model.parameters()).device
-        # # num_classes = model.head.num_classes
-        # a=Model(num_classes=1)
-        # self.ema = Model(num_classes=1)
-        # exit()
-
-        # self.ema.load_state_dict(de_parallel(model).state_dict())
-
         # if next(model.parameters()).device.type != 'cpu':
         #     self.ema.half()  # FP16 EMA
         self.updates = updates  # number of EMA updates
