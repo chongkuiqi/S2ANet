@@ -1,11 +1,4 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-"""
-Train a YOLOv5 model on a custom dataset.
-
-Usage:
-    $ python path/to/train.py --data coco128.yaml --weights yolov5s.pt --img 640  # from pretrained (RECOMMENDED)
-    $ python path/to/train.py --data coco128.yaml --weights '' --cfg yolov5s.yaml --img 640  # from scratch
-"""
 
 import argparse
 

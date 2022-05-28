@@ -108,7 +108,7 @@ if __name__=="__main__":
     subdataset = "train"
     # 被过滤掉的困难样本
     fliter_difficult_tuple = ('1','2',)
-
+    
     convert_dota_to_yolo(DOTA_path, subdataset, filter_empty_img=True, fliter_difficult_tuple=fliter_difficult_tuple)
 
     # 验证的时候不能过滤掉无目标的图像

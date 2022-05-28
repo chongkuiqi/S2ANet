@@ -8,12 +8,11 @@ from PIL import Image
 # from mmdet.core import poly_to_rotated_box_single
 from utils.general import poly_to_rotated_box_single
 
-# classes_name = ['plane', 'baseball-diamond', 'bridge', 'ground-track-field',
-#                'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
-#                'basketball-court', 'storage-tank', 'soccer-ball-field', 'roundabout',
-#                'harbor', 'swimming-pool', 'helicopter']
+classes_name = ['plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+               'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
+               'basketball-court', 'storage-tank', 'soccer-ball-field', 'roundabout',
+               'harbor', 'swimming-pool', 'helicopter']
 
-classes_name = ("vehicle", )
 
 label_ids = {name: i + 1 for i, name in enumerate(classes_name)}
 
@@ -90,23 +89,18 @@ def convert_dota_to_mmdet(src_path, out_path, trainval, filter_empty_gt, ext='.p
 
 if __name__ == '__main__':
 
-    src_dir = "/home/lab/ckq/LARVehicle/LAR1024"
-    # src_dir = "/home/lab/ckq/DOTA_map/"
+    src_dir = "/home/lab/ckq/DOTA_split/"
 
     dst_train_path = osp.join(src_dir, 'train')
     # trainval模式，会切割标签，filter_empty_gt会把无目标的图像切片过滤掉
     convert_dota_to_mmdet(dst_train_path, osp.join(dst_train_path, 'train1024.pkl'), 
                             trainval=True, filter_empty_gt=True)
 
-    # dst_val_path = osp.join(src_dir, 'val')
-    # # trainval模式，会切割标签，filter_empty_gt会把无目标的图像切片过滤掉
-    # convert_dota_to_mmdet(dst_val_path, osp.join(dst_val_path, 'val1024.pkl'), 
-    #                         trainval=True, filter_empty_gt=False)
-    
-    dst_test_path = osp.join(src_dir, 'test')
+    dst_val_path = osp.join(src_dir, 'val')
     # trainval模式，会切割标签，filter_empty_gt会把无目标的图像切片过滤掉
-    convert_dota_to_mmdet(dst_test_path, osp.join(dst_test_path, 'test1024.pkl'), 
+    convert_dota_to_mmdet(dst_val_path, osp.join(dst_val_path, 'val1024.pkl'), 
                             trainval=True, filter_empty_gt=False)
+    
 
 
     print('done!')
