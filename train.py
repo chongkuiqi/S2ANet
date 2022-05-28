@@ -523,20 +523,15 @@ def parse_opt(known=False):
     parser.add_argument('--weights', type=str, default=ROOT / '', help='initial weights path')
     # parser.add_argument('--weights', type=str, default=ROOT / 'runs/train/exp232/weights/best.pt', help='initial weights path')
 
-    # parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch.s2anet.yaml', help='hyperparameters path')
-    # parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.finetune.s2anet.yaml', help='hyperparameters path')
-    parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch.s2anet.LAR1024.yaml', help='hyperparameters path')
-    # parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch.s2anet.LAR1024_map.yaml', help='hyperparameters path')
+    parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch.s2anet.yaml', help='hyperparameters path')
 
-    # parser.add_argument('--data', type=str, default=ROOT / 'data/dota.yaml', help='dataset.yaml path')
-    parser.add_argument('--data', type=str, default=ROOT / 'data/LAR1024.yaml', help='dataset.yaml path')
-    # parser.add_argument('--data', type=str, default=ROOT / 'data/dota_map.yaml', help='dataset.yaml path')
+    parser.add_argument('--data', type=str, default=ROOT / 'data/dota.yaml', help='dataset.yaml path')
 
     # parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
     parser.add_argument('--cfg', type=str, default=ROOT / 'models/s2anet.yaml', help='model.yaml path')
     
 
-    parser.add_argument('--epochs', type=int, default=72)
+    parser.add_argument('--epochs', type=int, default=12)
     parser.add_argument('--batch-size', type=int, default=4, help='total batch size for all GPUs, -1 for autobatch')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=1024, help='train, val image size (pixels)')
 

@@ -8,7 +8,7 @@ from models.alignconv import AlignConv
 from models.init_weights import normal_init, bias_init_with_prob
 from models.boxes import rboxes_encode, rboxes_decode
 
-from utils.loss import SmoothL1Loss, FocalLoss, mmFocalLoss
+from utils.loss import SmoothL1Loss, FocalLoss
 
 from utils.bbox_nms_rotated import multiclass_nms_rotated
 from utils.metrics import bbox_iou_rotated
@@ -122,10 +122,7 @@ class S2ANetHead(nn.Module):
         loss_fam_cls = FocalLoss(loss_fam_cls, self.fl_gamma, self.fl_alpha) 
         loss_odm_cls = FocalLoss(loss_odm_cls, self.fl_gamma, self.fl_alpha)
 
-        # # 使用mmdetection框架的FocalLoss，不推荐使用
-        # loss_fam_cls = mmFocalLoss(use_sigmoid=True, gamma=self.fl_gamma, alpha=self.fl_alpha, reduction="sum") 
-        # loss_odm_cls = mmFocalLoss(use_sigmoid=True, gamma=self.fl_gamma, alpha=self.fl_alpha, reduction="sum")
-
+      
         self.loss_fam_cls = loss_fam_cls
         self.loss_odm_cls = loss_odm_cls        
 
