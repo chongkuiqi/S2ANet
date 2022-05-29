@@ -6,8 +6,8 @@ A reimplementation of the S2ANet algorithm for Oriented Object Detection
 
 ## 2. 安装流程  
 '''
-git clone https://github.com/chongkuiqi/S2ANet.git  
-cd S2ANet
+git clone https://github.com/chongkuiqi/S2ANet.git   
+cd S2ANet  
 '''  
 
 ### (1)安装DOTA_devkit  
