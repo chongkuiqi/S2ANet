@@ -1,6 +1,6 @@
 # S2ANet
 
-A reimplementation of the S2ANet algorithm for Oriented Object Detection
+A reimplementation of the S2ANet algorithm for Oriented Object Detection.
 
 ## 1. Environment dependency  
 
@@ -38,6 +38,8 @@ We take the DOTA dataset for example.
 
 ### （1）Dataset folder structure
 
+We should download the DOTA dataset, then change the folder structure like so:  
+
 ```
 your_dir
 ├── DOTA
@@ -47,14 +49,40 @@ your_dir
 │   ├── val
 │   │   ├── images
 │   │   ├── labelTxt
-├── DOTA_split
-│   ├── train
-│   │   ├── images
-│   │   ├── labelTxt
-│   ├── val
-│   │   ├── images
-│   │   ├── labelTxt
+```
 
+### (2) Split images and and convert annotations format  
+
+The original images in DOTA have so large size, so we need to split them into chip images, like this:  
+**note:** the DOTA path and save path in `1_prepare_dota1_ms.py` should be changed.  
+
+```bash
+cd S2ANet/DOTA_devkit/
+python 1_prepare_dota1_ms.py
+```
+
+Then convert the DOTA annotations to yolo format.  
+**note:** the DOTA_split path in `2_convert_dota_to_yolo.py` should be changed.
+
+```bash
+python 2_convert_dota_to_yolo.py
+```
+
+Besides, `val_split.txt` is needed for evulate the model, this file records image names without extension.
+**note:** the path in `3_create_txts.py` should be changed.
+
+```bash
+python 3_create_txt.py
+```
+
+### (3) Config dota.yaml  
+
+The [dota.yaml](data/dota.yaml) is also needed.
+**note:** the path in `dota.yaml` should be changed.
+
+Finally, the folder structure will be like this:
+
+```
 your_dir
 ├── DOTA
 │   ├── train
@@ -79,7 +107,7 @@ your_dir
 
 ## Results and Pretained weights on DOTA dataset  
 
-**Note:**: We only use the DOTA train set, and record the mAP50 on DOTA val set.  
+**Note:** We only use the DOTA train set, and record the mAP50 on DOTA val set.  
 
 | Model               | Backbone |      train    |      mAP50     | Download |
 | ------------------- | :------: | :-----------: | :------------: | :-----:  |
