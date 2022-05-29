@@ -2,6 +2,8 @@
 
 A reimplementation of the S2ANet algorithm for Oriented Object Detection.
 
+**Note:** Support DDP training !
+
 ## 1. Environment dependency  
 
 Our environment:  Ubuntu18.04 + pytorch1.7 + cuda10.2  
@@ -131,3 +133,8 @@ python -m torch.distributed.launch --nproc_per_node 2 train.py --device 0,1
 | S2ANet (paper)      | R-50-FPN | train+val set | 74.04(test set) | ------   |
 | S2ANet (paper)      | R-50-FPN | train set     | 70.2(val set)  | ------   |
 | S2ANet (this impl.) | R-50-FPN | train set     | 70.2(val test) | [model](https://drive.google.com/file/d/1Vb50k5zp_WyC-u5lwtN11xzgwOwhQLS_/view?usp=sharing) |
+
+## 6.Refenerce
+
+- (1) [Offical_S2ANet](https://github.com/csuhan/s2anet.git)
+- (2) [YOLOv5](https://github.com/ultralytics/yolov5.git)
