@@ -83,6 +83,6 @@ your_dir
 
 | Model               | Backbone |      train    |      mAP50     | Download |
 | ------------------- | :------: | :-----------: | :------------: | :-----:  |
-| S2ANet (paper)      | R-50-FPN | train+val set | 70.2(test set) | ------   |
+| S2ANet (paper)      | R-50-FPN | train+val set | 74.04(test set) | ------   |
 | S2ANet (paper)      | R-50-FPN | train set     | 70.2(val set)  | ------   |
 | S2ANet (this impl.) | R-50-FPN | train set     | 70.2(val test) | [model](https://drive.google.com/file/d/1Vb50k5zp_WyC-u5lwtN11xzgwOwhQLS_/view?usp=sharing) |
