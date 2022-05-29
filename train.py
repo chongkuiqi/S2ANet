@@ -387,10 +387,10 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                 if opt.quad:
                     loss *= 4.
 
-            # 找到reg回归损失突变的图像
-            if loss_items[-1] > 126:
-                print(paths)
-                # exit()
+            # # 找到reg回归损失突变的图像
+            # if loss_items[-1] > 126:
+            #     print(paths)
+            #     # exit()
             # Backward
             # 对损失乘以一个scale因子，然后再进行反向传播计算梯度。乘以scale因子，可以避免float16梯度出现underflow的情况
             scaler.scale(loss).backward()
