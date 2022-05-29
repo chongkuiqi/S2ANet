@@ -105,7 +105,24 @@ your_dir
 │   │   ├── val_split.txt
 ```
 
-## Results and Pretained weights on DOTA dataset  
+## 4. Train S2ANet model  
+
+### (1) Single-GPU
+
+```bash
+cd S2ANet
+python train.py
+```
+
+### (2) Mutil-GPU
+
+**Note:** We support pytorch Multi-GPU DistributedDataParallel Mode !  
+
+```bash
+python -m torch.distributed.launch --nproc_per_node 2 train.py --device 0,1
+```
+
+## 5. Results and trained weights on DOTA dataset  
 
 **Note:** We only use the DOTA train set, and record the mAP50 on DOTA val set.  
 
