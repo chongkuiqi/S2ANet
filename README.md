@@ -7,7 +7,7 @@ A reimplementation of the S2ANet algorithm for Oriented Object Detection.
 ## 1. Environment dependency  
 
 Our environment:  Ubuntu18.04 + pytorch1.7 + cuda10.2  
-We don't try other environment, but we  recommend pytorch>=1.6 .
+We don't try other environment, but we  recommend pytorch>=1.6 for DDP training.
 
 ## 2. Installation
 
