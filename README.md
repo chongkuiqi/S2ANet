@@ -2,7 +2,7 @@
 
 A reimplementation of the S2ANet algorithm for Oriented Object Detection.
 
-**Note:** Support DDP training !
+**Note:** Support **DDP training** and **Auto Mixed Precision** in Pytorch, so the training is faster!
 
 ## 1. Environment dependency  
 
