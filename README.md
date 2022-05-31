@@ -79,7 +79,7 @@ python 3_create_txt.py
 
 ### (3) Config dota.yaml  
 
-The [dota.yaml](data/dota.yaml) is also needed.
+The [dota.yaml](data/dota.yaml) is also needed.  
 **note:** the path in `dota.yaml` should be changed.
 
 Finally, the folder structure will be like this:
