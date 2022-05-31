@@ -126,7 +126,7 @@ python -m torch.distributed.launch --nproc_per_node 2 train.py --device 0,1
 
 ## 5. Results and trained weights on DOTA dataset  
 
-**Note:** We only use the DOTA train set, and record the mAP50 on DOTA val set.  
+**Note:** We only use the DOTA train set, and report the mAP50 on DOTA val set.  
 
 | Model               | Backbone |      train    |      mAP50     | Download |
 | ------------------- | :------: | :-----------: | :------------: | :-----:  |
