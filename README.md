@@ -132,7 +132,7 @@ python -m torch.distributed.launch --nproc_per_node 2 train.py --device 0,1
 | ------------------- | :------: | :-----------: | :------------: | :-----:  |
 | S2ANet (paper)      | R-50-FPN | train+val set | 74.04(test set) | ------   |
 | S2ANet (paper)      | R-50-FPN | train set     | 70.2(val set)  | ------   |
-| S2ANet (this impl.) | R-50-FPN | train set     | 70.2(val test) | [model](https://drive.google.com/file/d/1Vb50k5zp_WyC-u5lwtN11xzgwOwhQLS_/view?usp=sharing) |
+| S2ANet (this impl.) | R-50-FPN | train set     | 70.2(val set) | [model](https://drive.google.com/file/d/1Vb50k5zp_WyC-u5lwtN11xzgwOwhQLS_/view?usp=sharing) |
 
 ## 6.Refenerce
 
