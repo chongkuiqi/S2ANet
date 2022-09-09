@@ -302,16 +302,14 @@ class LoadImagesAndLabels(Dataset):
         self.label_files = img2label_paths(self.img_files)  # labels
         cache_path = (p if p.is_file() else Path(self.label_files[0]).parent).with_suffix('.cache')
         
-        cache, exists = np.load(cache_path, allow_pickle=True).item(), True  # load dict
-        # # 
-        # try:
-        #     cache, exists = np.load(cache_path, allow_pickle=True).item(), True  # load dict
-        #     assert cache['version'] == self.cache_version  # same version
-        #     assert cache['hash'] == get_hash(self.label_files + self.img_files)  # same hash
-        # except Exception:
-        #     cache, exists = self.cache_labels(cache_path, prefix), False  # cache
-        # # 每次训练都重新做标签
-        # cache, exists = self.cache_labels(cache_path, prefix), False  # cache
+        # 
+        try:
+            cache, exists = np.load(cache_path, allow_pickle=True).item(), True  # load dict
+            assert cache['version'] == self.cache_version  # same version
+            assert cache['hash'] == get_hash(self.label_files + self.img_files)  # same hash
+        except Exception:
+            cache, exists = self.cache_labels(cache_path, prefix), False  # cache
+
 
         # Display cache
         nf, nm, ne, nc, n = cache.pop('results')  # found, missing, empty, corrupt, total
