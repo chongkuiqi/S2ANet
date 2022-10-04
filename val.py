@@ -47,6 +47,8 @@ from utils.general import scale_coords_rotated, rotated_box_to_poly_single
 from DOTA_devkit.ResultMerge_multi_process import mergebypoly
 from DOTA_devkit.dota_evaluation_task1 import voc_eval
 
+import matplotlib.pyplot as plt
+
 
 def save_per_class(imgs_results_ls, dst_raw_path, classes_names_id:dict):
     # print('Saving results to {}'.format(dst_raw_path))
@@ -202,11 +204,8 @@ def run(data,
             model = torch.load(weights, map_location=device)["model"]
         
 
-        print(model.head.iou_thres_nms)
-        model.head.iou_thres_nms = 0.1
-        print(model.head.iou_thres_nms)
-        print(model)
-        exit()
+        print(f"score_thr:{model.head.score_thres_before_nms}, iou_thr:{model.head.iou_thres_nms}")
+
 
         # stride, pt, jit, onnx, engine = model.stride, model.pt, model.jit, model.onnx, model.engine
         stride, pt, jit, onnx, engine = model.stride, True, False, False, False
@@ -363,7 +362,7 @@ def run(data,
         # detpath: 检测结果的存储路径，检测结果的边界框是切割前的图像上的坐标
         # annopath：测试集或验证集的标签文件的存储路径，边界框是切割前的图像上的坐标
         # imagesetfile：测试集或验证集图像的列表，不包括拓展名
-        recall, precsion, ap50, sorted_scores = voc_eval(detpath,
+        recall, precision, ap50, sorted_scores = voc_eval(detpath,
                                     annopath,
                                     imagesetfile,
                                     class_name,
@@ -374,8 +373,18 @@ def run(data,
         classes_ap50s.append(ap50)
         
 
-        f1 = 2 * recall * precsion / (recall + precsion + 1e-16)
-        
+        f1 = 2 * recall * precision / (recall + precision + 1e-16)
+        # 这里可以画PR曲线了
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        ax.plot(recall, precision)
+        ax.set_xlabel('Recall')
+        ax.set_ylabel('Precision')
+        ax.set_xlim(0, 1.01)
+        ax.set_ylim(0, 1.01)
+        fig.tight_layout()
+        fig.savefig(save_dir / 'PR_curve.png', dpi=300)
+
+
         # print(f"{classname} f1:{f1[-1]}")
         # 找到使f1最大的置信度
         max_f1_idx = f1.argmax()
@@ -386,7 +395,7 @@ def run(data,
         max_f1_conf = sorted_scores[max_f1_idx]
         num_det = max_f1_idx+1
         
-        classes_P.append(precsion[max_f1_idx])
+        classes_P.append(precision[max_f1_idx])
         classes_R.append(recall[max_f1_idx])
         classes_f1.append(max_f1)
         classes_conf.append(max_f1_conf)
