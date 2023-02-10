@@ -26,7 +26,7 @@ from PIL import ExifTags, Image, ImageOps
 from torch.utils.data import DataLoader, Dataset, dataloader, distributed
 from tqdm import tqdm
 
-from utils.augmentations import Albumentations, augment_hsv, letterbox, mixup,random_perspective_rotation
+from utils.augmentations import augment_hsv, letterbox, mixup,random_perspective_rotation
 from utils.general import (LOGGER, NUM_THREADS, check_dataset, check_yaml, clean_str,
                             xywh2xyxy, xywhn2xyxy, xyxy2xywhn,
                            x1y1x2y2x3y3x4y4n2x1y1x2y2x3y3x4y4, x1y1x2y2x3y3x4y42x1y1x2y2x3y3x4y4n,
@@ -272,7 +272,6 @@ class LoadImagesAndLabels(Dataset):
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
         self.path = path
-        self.albumentations = Albumentations() if augment else None
 
         try:
             f = []  # image files
@@ -478,11 +477,8 @@ class LoadImagesAndLabels(Dataset):
 
         
         if self.augment:
-            # # 这里不使用这种数据增强方法
-            # # Albumentations
-            # img, labels = self.albumentations(img, labels)
 
-            nl = len(labels)  # update after albumentations
+            nl = len(labels)  
 
             # HSV color-space
             augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
