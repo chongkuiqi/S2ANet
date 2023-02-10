@@ -567,7 +567,7 @@ def x1y1x2y2x3y3x4y4n2x1y1x2y2x3y3x4y4(x, w=640, h=640, padw=0, padh=0):
     # Convert nx8 boxes from [x1,y1,... x4,y4] normalized to [x1,y1,... x4,y4]
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[:, 0::2] = w * x[:, 0::2] + padw  #  x
-    y[:, 1::2] = w * x[:, 1::2] + padh  #  y
+    y[:, 1::2] = h * x[:, 1::2] + padh  #  y
 
     return y
 
