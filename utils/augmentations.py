@@ -9,40 +9,8 @@ import random
 import cv2
 import numpy as np
 
-from utils.general import LOGGER, check_version, colorstr, poly_to_rotated_box_np
+from utils.general import poly_to_rotated_box_np
 from utils.metrics import bbox_ioa
-
-
-class Albumentations:
-    # YOLOv5 Albumentations class (optional, only used if package is installed)
-    def __init__(self):
-        self.transform = None
-        try:
-            import albumentations as A
-            check_version(A.__version__, '1.0.3', hard=True)  # version requirement
-
-            self.transform = A.Compose([
-                A.Blur(p=0.01),
-                A.MedianBlur(p=0.01),
-                A.ToGray(p=0.01),
-                A.CLAHE(p=0.01),
-                A.RandomBrightnessContrast(p=0.0),
-                A.RandomGamma(p=0.0),
-                A.ImageCompression(quality_lower=75, p=0.0)],
-                bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
-
-            LOGGER.info(colorstr('albumentations: ') + ', '.join(f'{x}' for x in self.transform.transforms if x.p))
-        except ImportError:  # package not installed, skip
-            pass
-        except Exception as e:
-            LOGGER.info(colorstr('albumentations: ') + f'{e}')
-
-    def __call__(self, im, labels, p=1.0):
-        if self.transform and random.random() < p:
-            new = self.transform(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0])  # transformed
-            im, labels = new['image'], np.array([[c, *b] for c, b in zip(new['class_labels'], new['bboxes'])])
-        return im, labels
-
 
 def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
     # HSV color-space augmentation
@@ -119,88 +87,6 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleF
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
     im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
     return im, ratio, (dw, dh)
-
-
-def random_perspective(im, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0,
-                       border=(0, 0)):
-    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(0.1, 0.1), scale=(0.9, 1.1), shear=(-10, 10))
-    # targets = [cls, xyxy]
-
-    height = im.shape[0] + border[0] * 2  # shape(h,w,c)
-    width = im.shape[1] + border[1] * 2
-
-    # Center
-    C = np.eye(3)
-    C[0, 2] = -im.shape[1] / 2  # x translation (pixels)
-    C[1, 2] = -im.shape[0] / 2  # y translation (pixels)
-
-    # Perspective
-    P = np.eye(3)
-    P[2, 0] = random.uniform(-perspective, perspective)  # x perspective (about y)
-    P[2, 1] = random.uniform(-perspective, perspective)  # y perspective (about x)
-
-    # Rotation and Scale
-    R = np.eye(3)
-    a = random.uniform(-degrees, degrees)
-    # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
-    s = random.uniform(1 - scale, 1 + scale)
-    # s = 2 ** random.uniform(-scale, scale)
-    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
-
-    # Shear
-    S = np.eye(3)
-    S[0, 1] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # x shear (deg)
-    S[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y shear (deg)
-
-    # Translation
-    T = np.eye(3)
-    T[0, 2] = random.uniform(0.5 - translate, 0.5 + translate) * width  # x translation (pixels)
-    T[1, 2] = random.uniform(0.5 - translate, 0.5 + translate) * height  # y translation (pixels)
-
-    # Combined rotation matrix
-    M = T @ S @ R @ P @ C  # order of operations (right to left) is IMPORTANT
-    if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
-        if perspective:
-            im = cv2.warpPerspective(im, M, dsize=(width, height), borderValue=(114, 114, 114))
-        else:  # affine
-            im = cv2.warpAffine(im, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
-
-    # Visualize
-    # import matplotlib.pyplot as plt
-    # ax = plt.subplots(1, 2, figsize=(12, 6))[1].ravel()
-    # ax[0].imshow(im[:, :, ::-1])  # base
-    # ax[1].imshow(im2[:, :, ::-1])  # warped
-
-    # Transform label coordinates
-    n = len(targets)
-    if n:        
-        # new = np.zeros((n, 4))
-        new = np.zeros((n, 8))
-
-        # warp boxes
-        xy = np.ones((n * 4, 3))
-        xy[:, :2] = targets[:, 1:].reshape(n * 4, 2)  # x1y1, x2y2, x3y3, x4y4
-        xy = xy @ M.T  # transform
-        xy = (xy[:, :2] / xy[:, 2:3] if perspective else xy[:, :2]).reshape(n, 8)  # perspective rescale or affine
-
-        # create new boxes
-        # x = xy[:, [0, 2, 4, 6]]
-        # y = xy[:, [1, 3, 5, 7]]
-        # new = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
-        # print(f"xy-shape:{xy.shape}")
-        new = np.ascontiguousarray(xy)
-
-        # # 这里还是不对角点坐标进行截断
-        # # clip
-        # new[:, [0, 2, 4, 6]] = new[:, [0, 2, 4, 6]].clip(0, width)
-        # new[:, [1, 3, 5, 7]] = new[:, [1, 3, 5, 7]].clip(0, height)
-
-        # filter candidates
-        i = box_candidates(box1=targets[:, 1:].T * s, box2=new.T, area_thr=0.10)
-        targets = targets[i]
-        targets[:, 1:] = new[i]
-
-    return im, targets
 
 
 

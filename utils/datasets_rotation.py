@@ -653,7 +653,7 @@ def load_mosaic(self, index):
     # 还是先不截断了
     # # 我们这里的做法是，截断，因为在进行mosaic时，有可能一个斜长的框的两个角点都在拼接图像范围之外了
     # for x in labels4[:, 1:]:
-    #     np.clip(x, 0, 2*s-1, out=x)  # clip when using random_perspective()
+    #     np.clip(x, 0, 2*s-1, out=x)  
     # # # img4, labels4 = replicate(img4, labels4)  # replicate
 
     # Augment
@@ -670,149 +670,11 @@ def load_mosaic(self, index):
     return img4, labels4
 
 
-def load_mosaic9(self, index):
-    # YOLOv5 9-mosaic loader. Loads 1 image + 8 random images into a 9-image mosaic
-    labels9 = []
-    s = self.img_size
-    indices = [index] + random.choices(self.indices, k=8)  # 8 additional image indices
-    random.shuffle(indices)
-    hp, wp = -1, -1  # height, width previous
-    for i, index in enumerate(indices):
-        # Load image
-        img, _, (h, w) = load_image(self, index)
-
-        # place img in img9
-        if i == 0:  # center
-            img9 = np.full((s * 3, s * 3, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
-            h0, w0 = h, w
-            c = s, s, s + w, s + h  # xmin, ymin, xmax, ymax (base) coordinates
-        elif i == 1:  # top
-            c = s, s - h, s + w, s
-        elif i == 2:  # top right
-            c = s + wp, s - h, s + wp + w, s
-        elif i == 3:  # right
-            c = s + w0, s, s + w0 + w, s + h
-        elif i == 4:  # bottom right
-            c = s + w0, s + hp, s + w0 + w, s + hp + h
-        elif i == 5:  # bottom
-            c = s + w0 - w, s + h0, s + w0, s + h0 + h
-        elif i == 6:  # bottom left
-            c = s + w0 - wp - w, s + h0, s + w0 - wp, s + h0 + h
-        elif i == 7:  # left
-            c = s - w, s + h0 - h, s, s + h0
-        elif i == 8:  # top left
-            c = s - w, s + h0 - hp - h, s, s + h0 - hp
-
-        padx, pady = c[:2]
-        x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coords
-
-        # Labels
-        labels = self.labels[index].copy()
-        if labels.size:
-            labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padx, pady)  # normalized xywh to pixel xyxy format
-        labels9.append(labels)
-
-        # Image
-        img9[y1:y2, x1:x2] = img[y1 - pady:, x1 - padx:]  # img9[ymin:ymax, xmin:xmax]
-        hp, wp = h, w  # height, width previous
-
-    # Offset
-    yc, xc = (int(random.uniform(0, s)) for _ in self.mosaic_border)  # mosaic center x, y
-    img9 = img9[yc:yc + 2 * s, xc:xc + 2 * s]
-
-    # Concat/clip labels
-    labels9 = np.concatenate(labels9, 0)
-    labels9[:, [1, 3]] -= xc
-    labels9[:, [2, 4]] -= yc
-    c = np.array([xc, yc])  # centers
-
-    for x in labels9[:, 1:]:
-        np.clip(x, 0, 2 * s, out=x)  # clip when using random_perspective()
-    # img9, labels9 = replicate(img9, labels9)  # replicate
-
-    # Augment
-    img9, labels9 = random_perspective_rotation(img9, labels9,
-                                       degrees=self.hyp['degrees'],
-                                       translate=self.hyp['translate'],
-                                       scale=self.hyp['scale'],
-                                       shear=self.hyp['shear'],
-                                       perspective=self.hyp['perspective'],
-                                       border=self.mosaic_border)  # border to remove
-
-    return img9, labels9
-
-
 def create_folder(path='./new'):
     # Create folder
     if os.path.exists(path):
         shutil.rmtree(path)  # delete output folder
     os.makedirs(path)  # make new output folder
-
-
-def flatten_recursive(path='../datasets/coco128'):
-    # Flatten a recursive directory by bringing all files to top level
-    new_path = Path(path + '_flat')
-    create_folder(new_path)
-    for file in tqdm(glob.glob(str(Path(path)) + '/**/*.*', recursive=True)):
-        shutil.copyfile(file, new_path / Path(file).name)
-
-
-def extract_boxes(path='../datasets/coco128'):  # from utils.datasets import *; extract_boxes()
-    # Convert detection dataset into classification dataset, with one directory per class
-    path = Path(path)  # images dir
-    shutil.rmtree(path / 'classifier') if (path / 'classifier').is_dir() else None  # remove existing
-    files = list(path.rglob('*.*'))
-    n = len(files)  # number of files
-    for im_file in tqdm(files, total=n):
-        if im_file.suffix[1:] in IMG_FORMATS:
-            # image
-            im = cv2.imread(str(im_file))[..., ::-1]  # BGR to RGB
-            h, w = im.shape[:2]
-
-            # labels
-            lb_file = Path(img2label_paths([str(im_file)])[0])
-            if Path(lb_file).exists():
-                with open(lb_file) as f:
-                    lb = np.array([x.split() for x in f.read().strip().splitlines()], dtype=np.float32)  # labels
-
-                for j, x in enumerate(lb):
-                    c = int(x[0])  # class
-                    f = (path / 'classifier') / f'{c}' / f'{path.stem}_{im_file.stem}_{j}.jpg'  # new filename
-                    if not f.parent.is_dir():
-                        f.parent.mkdir(parents=True)
-
-                    b = x[1:] * [w, h, w, h]  # box
-                    # b[2:] = b[2:].max()  # rectangle to square
-                    b[2:] = b[2:] * 1.2 + 3  # pad
-                    b = xywh2xyxy(b.reshape(-1, 4)).ravel().astype(np.int)
-
-                    b[[0, 2]] = np.clip(b[[0, 2]], 0, w)  # clip boxes outside of image
-                    b[[1, 3]] = np.clip(b[[1, 3]], 0, h)
-                    assert cv2.imwrite(str(f), im[b[1]:b[3], b[0]:b[2]]), f'box failure in {f}'
-
-
-def autosplit(path='../datasets/coco128/images', weights=(0.9, 0.1, 0.0), annotated_only=False):
-    """ Autosplit a dataset into train/val/test splits and save path/autosplit_*.txt files
-    Usage: from utils.datasets import *; autosplit()
-    Arguments
-        path:            Path to images directory
-        weights:         Train, val, test weights (list, tuple)
-        annotated_only:  Only use images with an annotated txt file
-    """
-    path = Path(path)  # images dir
-    files = sorted(x for x in path.rglob('*.*') if x.suffix[1:].lower() in IMG_FORMATS)  # image files only
-    n = len(files)  # number of files
-    random.seed(0)  # for reproducibility
-    indices = random.choices([0, 1, 2], weights=weights, k=n)  # assign each image to a split
-
-    txt = ['autosplit_train.txt', 'autosplit_val.txt', 'autosplit_test.txt']  # 3 txt files
-    [(path.parent / x).unlink(missing_ok=True) for x in txt]  # remove existing
-
-    print(f'Autosplitting images from {path}' + ', using *.txt labeled images only' * annotated_only)
-    for i, img in tqdm(zip(indices, files), total=n):
-        if not annotated_only or Path(img2label_paths([str(img)])[0]).exists():  # check label
-            with open(path.parent / txt[i], 'a') as f:
-                f.write('./' + img.relative_to(path.parent).as_posix() + '\n')  # add image to txt file
 
 
 def verify_image_label(args):
@@ -871,109 +733,6 @@ def verify_image_label(args):
         nc = 1
         msg = f'{prefix}WARNING: {im_file}: ignoring corrupt image/label: {e}'
         return [None, None, None, nm, nf, ne, nc, msg]
-
-
-def dataset_stats(path='coco128.yaml', autodownload=False, verbose=False, profile=False, hub=False):
-    """ Return dataset statistics dictionary with images and instances counts per split per class
-    To run in parent directory: export PYTHONPATH="$PWD/yolov5"
-    Usage1: from utils.datasets import *; dataset_stats('coco128.yaml', autodownload=True)
-    Usage2: from utils.datasets import *; dataset_stats('../datasets/coco128_with_yaml.zip')
-    Arguments
-        path:           Path to data.yaml or data.zip (with data.yaml inside data.zip)
-        autodownload:   Attempt to download dataset if not found locally
-        verbose:        Print stats dictionary
-    """
-
-    def round_labels(labels):
-        # Update labels to integer class and 6 decimal place floats
-        return [[int(c), *(round(x, 4) for x in points)] for c, *points in labels]
-
-    def unzip(path):
-        # Unzip data.zip TODO: CONSTRAINT: path/to/abc.zip MUST unzip to 'path/to/abc/'
-        if str(path).endswith('.zip'):  # path is data.zip
-            assert Path(path).is_file(), f'Error unzipping {path}, file not found'
-            ZipFile(path).extractall(path=path.parent)  # unzip
-            dir = path.with_suffix('')  # dataset directory == zip name
-            return True, str(dir), next(dir.rglob('*.yaml'))  # zipped, data_dir, yaml_path
-        else:  # path is data.yaml
-            return False, None, path
-
-    def hub_ops(f, max_dim=1920):
-        # HUB ops for 1 image 'f': resize and save at reduced quality in /dataset-hub for web/app viewing
-        f_new = im_dir / Path(f).name  # dataset-hub image filename
-        try:  # use PIL
-            im = Image.open(f)
-            r = max_dim / max(im.height, im.width)  # ratio
-            if r < 1.0:  # image too large
-                im = im.resize((int(im.width * r), int(im.height * r)))
-            im.save(f_new, 'JPEG', quality=75, optimize=True)  # save
-        except Exception as e:  # use OpenCV
-            print(f'WARNING: HUB ops PIL failure {f}: {e}')
-            im = cv2.imread(f)
-            im_height, im_width = im.shape[:2]
-            r = max_dim / max(im_height, im_width)  # ratio
-            if r < 1.0:  # image too large
-                im = cv2.resize(im, (int(im_width * r), int(im_height * r)), interpolation=cv2.INTER_AREA)
-            cv2.imwrite(str(f_new), im)
-
-    zipped, data_dir, yaml_path = unzip(Path(path))
-    with open(check_yaml(yaml_path), errors='ignore') as f:
-        data = yaml.safe_load(f)  # data dict
-        if zipped:
-            data['path'] = data_dir  # TODO: should this be dir.resolve()?
-    check_dataset(data, autodownload)  # download dataset if missing
-    hub_dir = Path(data['path'] + ('-hub' if hub else ''))
-    stats = {'nc': data['nc'], 'names': data['names']}  # statistics dictionary
-    for split in 'train', 'val', 'test':
-        if data.get(split) is None:
-            stats[split] = None  # i.e. no test set
-            continue
-        x = []
-        dataset = LoadImagesAndLabels(data[split])  # load dataset
-        for label in tqdm(dataset.labels, total=dataset.n, desc='Statistics'):
-            x.append(np.bincount(label[:, 0].astype(int), minlength=data['nc']))
-        x = np.array(x)  # shape(128x80)
-        stats[split] = {'instance_stats': {'total': int(x.sum()), 'per_class': x.sum(0).tolist()},
-                        'image_stats': {'total': dataset.n, 'unlabelled': int(np.all(x == 0, 1).sum()),
-                                        'per_class': (x > 0).sum(0).tolist()},
-                        'labels': [{str(Path(k).name): round_labels(v.tolist())} for k, v in
-                                   zip(dataset.img_files, dataset.labels)]}
-
-        if hub:
-            im_dir = hub_dir / 'images'
-            im_dir.mkdir(parents=True, exist_ok=True)
-            for _ in tqdm(ThreadPool(NUM_THREADS).imap(hub_ops, dataset.img_files), total=dataset.n, desc='HUB Ops'):
-                pass
-
-    # Profile
-    stats_path = hub_dir / 'stats.json'
-    if profile:
-        for _ in range(1):
-            file = stats_path.with_suffix('.npy')
-            t1 = time.time()
-            np.save(file, stats)
-            t2 = time.time()
-            x = np.load(file, allow_pickle=True)
-            print(f'stats.npy times: {time.time() - t2:.3f}s read, {t2 - t1:.3f}s write')
-
-            file = stats_path.with_suffix('.json')
-            t1 = time.time()
-            with open(file, 'w') as f:
-                json.dump(stats, f)  # save stats *.json
-            t2 = time.time()
-            with open(file) as f:
-                x = json.load(f)  # load hyps dict
-            print(f'stats.json times: {time.time() - t2:.3f}s read, {t2 - t1:.3f}s write')
-
-    # Save, print and return
-    if hub:
-        print(f'Saving {stats_path.resolve()}...')
-        with open(stats_path, 'w') as f:
-            json.dump(stats, f)  # save stats.json
-    if verbose:
-        print(json.dumps(stats, indent=2, sort_keys=False))
-    return stats
-
 
 
 def plot_rotate_boxes(img, boxes_points, cls_fall_point=0, color=(0, 0, 255), thickness=1):
