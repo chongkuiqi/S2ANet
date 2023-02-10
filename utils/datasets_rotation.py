@@ -27,9 +27,8 @@ from torch.utils.data import DataLoader, Dataset, dataloader, distributed
 from tqdm import tqdm
 
 from utils.augmentations import augment_hsv, letterbox, mixup,random_perspective_rotation
-from utils.general import (LOGGER, NUM_THREADS, check_dataset, check_yaml, clean_str,
-                            xywh2xyxy, xywhn2xyxy, xyxy2xywhn,
-                           x1y1x2y2x3y3x4y4n2x1y1x2y2x3y3x4y4, x1y1x2y2x3y3x4y42x1y1x2y2x3y3x4y4n,
+from utils.general import (LOGGER, NUM_THREADS,
+                           x1y1x2y2x3y3x4y4n2x1y1x2y2x3y3x4y4,
                            xywhtheta2xywhtheta_n,
                            poly_to_rotated_box_np,
                            )
