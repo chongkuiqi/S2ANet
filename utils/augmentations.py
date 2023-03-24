@@ -1,4 +1,4 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+
 """
 Image augmentation functions
 """
@@ -110,12 +110,12 @@ def random_perspective_rotation(im, targets=(), degrees=10, translate=.1, scale=
 
     # Rotation and Scale
     R = np.eye(3)
-    # a = random.uniform(-degrees, degrees)
+    a = random.uniform(-degrees, degrees)
     # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
-    if degrees == 0:
-        a = random.uniform(-degrees, degrees)
-    else:
-        a = random.choice([-180, -90, 0, 90])  
+    # if degrees == 0:
+    #     a = random.uniform(-degrees, degrees)
+    # else:
+    #     a = random.choice([-180, -90, 0, 90]) 
     
     s = random.uniform(1 - scale, 1 + scale)
     # s = 2 ** random.uniform(-scale, scale)

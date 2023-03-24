@@ -43,11 +43,15 @@ from utils.plots import plot_labels_rotate
 from utils.torch_utils import ModelEMA, de_parallel, select_device, torch_distributed_zero_first
 
 
-from models.s2anet import S2ANet as Model
+from models.detector import S2ANet as Model
 
 
-from utils.datasets_rotation import plot_rotate_boxes
-from utils.general import rotated_box_to_poly_np
+
+# 对OpenCV的版本进行约束，要求是4.5.1-4.5.5版本之间，
+import cv2
+cv_version = cv2.__version__
+print(f"OpenCV版本:{cv_version}")
+assert "4.5" in cv_version and int(cv_version.split('.')[-1]) >= 1
 
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))  # https://pytorch.org/docs/stable/elastic/run.html
 RANK = int(os.getenv('RANK', -1))
@@ -379,7 +383,10 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             with amp.autocast(enabled=is_MAP):
                 # 混合精度训练，要求输入图像和模型都是torch.float32类型
                 # 改为S2ANet代码
-                loss, loss_items = model(imgs, targets.to(device))
+                results = model(imgs, targets.to(device))
+                loss = results["loss"] 
+                loss_items = results["loss_items"]
+
                 # print(loss)
                 # print(loss_items)
                 if RANK != -1:

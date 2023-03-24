@@ -5,23 +5,18 @@ Dataloaders and dataset utils
 
 import glob
 import hashlib
-import json
-import math
+
 import os
 import random
-import shutil
-import time
+
 from itertools import repeat
 from multiprocessing.pool import Pool, ThreadPool
 from pathlib import Path
-from threading import Thread
-from zipfile import ZipFile
 
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-import yaml
 from PIL import ExifTags, Image, ImageOps
 from torch.utils.data import DataLoader, Dataset, dataloader, distributed
 from tqdm import tqdm
@@ -33,6 +28,7 @@ from utils.general import (LOGGER, NUM_THREADS,
                            poly_to_rotated_box_np,
                            )
 from utils.torch_utils import torch_distributed_zero_first
+
 
 # Parameters
 HELP_URL = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
@@ -460,12 +456,12 @@ class LoadImagesAndLabels(Dataset):
             # padding到方形尺寸
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
-
+            
             labels = self.labels[index].copy()
             if labels.size:  # normalized xywh to pixel xyxy format
                 # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
-                labels[:, 1:] = x1y1x2y2x3y3x4y4n2x1y1x2y2x3y3x4y4(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
-                
+                labels[:, 1:] = x1y1x2y2x3y3x4y4n2x1y1x2y2x3y3x4y4(labels[:, 1:], ratio[0]*w, ratio[1]*h, padw=pad[0], padh=pad[1])
+            
             if self.augment:
                 img, labels = random_perspective_rotation(img, labels,
                                                  degrees=hyp['degrees'],
@@ -582,6 +578,7 @@ class LoadImagesAndLabels(Dataset):
 
 
 # Ancillary functions --------------------------------------------------------------------------------------------------
+
 def load_image(self, i):
     # loads 1 image from dataset index 'i', returns im, original hw, resized hw
     im = self.imgs[i]
@@ -601,6 +598,7 @@ def load_image(self, i):
         return im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
     else:
         return self.imgs[i], self.img_hw0[i], self.img_hw[i]  # im, hw_original, hw_resized
+
 
 
 def load_mosaic(self, index):
@@ -648,7 +646,7 @@ def load_mosaic(self, index):
     # 还是先不截断了
     # # 我们这里的做法是，截断，因为在进行mosaic时，有可能一个斜长的框的两个角点都在拼接图像范围之外了
     # for x in labels4[:, 1:]:
-    #     np.clip(x, 0, 2*s-1, out=x)  
+    #     np.clip(x, 0, 2*s-1, out=x)  # clip when using random_perspective()
     # # # img4, labels4 = replicate(img4, labels4)  # replicate
 
     # Augment
@@ -665,11 +663,6 @@ def load_mosaic(self, index):
     return img4, labels4
 
 
-def create_folder(path='./new'):
-    # Create folder
-    if os.path.exists(path):
-        shutil.rmtree(path)  # delete output folder
-    os.makedirs(path)  # make new output folder
 
 
 def verify_image_label(args):
@@ -706,9 +699,9 @@ def verify_image_label(args):
                 # 下面这两个条件可以不满足，因为旋转框角点坐标可能会超出图像边界，可能会小于0，也可能会大于1
                 # 但我们这里先不注释掉了
                 # 所有的标注信息，都得大于0，也就是旋转框坐标值必须大于0
-                assert (lb >= 0).all(), f'negative label values {lb[lb < 0]}'
-                # 所有的坐标值必须小于1，也就是说，坐标值根据图像的宽高进行归一化
-                assert (lb[:, 1:] <= 1).all(), f'non-normalized or out of bounds coordinates {lb[:, 1:][lb[:, 1:] > 1]}'
+                # assert (lb >= 0).all(), f'negative label values {lb[lb < 0]}'
+                # # 所有的坐标值必须小于1，也就是说，坐标值根据图像的宽高进行归一化
+                # assert (lb[:, 1:] <= 1).all(), f'non-normalized or out of bounds coordinates {lb[:, 1:][lb[:, 1:] > 1]}'
                 
                 # 判断是否有重复的标注框
                 _, i = np.unique(lb, axis=0, return_index=True)
@@ -728,6 +721,7 @@ def verify_image_label(args):
         nc = 1
         msg = f'{prefix}WARNING: {im_file}: ignoring corrupt image/label: {e}'
         return [None, None, None, nm, nf, ne, nc, msg]
+
 
 
 def plot_rotate_boxes(img, boxes_points, cls_fall_point=0, color=(0, 0, 255), thickness=1):

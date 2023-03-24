@@ -1,4 +1,3 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 General utils
 """
@@ -28,6 +27,7 @@ import pkg_resources as pkg
 import torch
 import torchvision
 import yaml
+import math
 
 from utils.metrics import box_iou, fitness
 
@@ -606,6 +606,7 @@ def xywhtheta2xywhtheta_n(x, w=640, h=640, clip=False, eps=0.0):
     return y
 
 
+
 def xyn2xy(x, w=640, h=640, padw=0, padh=0):
     # Convert normalized segments into pixel segments, shape (n,2)
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -841,158 +842,143 @@ def increment_path(path, exist_ok=False, sep='', mkdir=False):
 # # Variables
 # NCOLS = 0 if is_docker() else shutil.get_terminal_size().columns  # terminal window size for tqdm
 
+def poly_to_rotated_box_single(box_points, eps=1e-6):
+    '''
+    points:[N,8]
+    '''
 
-# def points2rotation_boxes_wh(boxes_points):
-#     '''
-#     points:[N,8]
-#     '''
-
-#     rotate_boxes_wh = []
-#     for box_points1 in boxes_points:
-#         # 找到最小外接矩形
-#         # cv2.minAreaRect 的输入：np.array类型，shape为[n,2]，必须是整形
-#         # 输出是个元组，元组共三个元素，((x_c,y_c), (edge1, edge2), theta)，都是浮点型
-#         # theta是从x轴逆时针转动碰到edge1时的角度，新版opencv角度范围是(0°，90°]，单位不是弧度
-#         # edge1, edge2不确定哪个长度更长，要自己确定
-        
-#         # print(f"boxes:{boxes_points.shape}, box:{box_points.shape}-{box_points}")
-#         box_points = box_points1.reshape(4,2).astype(np.int0)
-#         rotate_box = cv2.minAreaRect(box_points)
-#         (x, y), (edge1, edge2), theta = rotate_box
-        
-#         # 调整长短边顺序
-#         if edge1 > edge2:
-#             w = edge1
-#             h = edge2
-#         else:
-#             w = edge2
-#             h = edge1
-
-#         rotate_box_wh = [w, h]
-        
-#         rotate_boxes_wh.append(rotate_box_wh)
+    # 找到最小外接矩形
+    # cv2.minAreaRect 的输入：np.array类型，shape为[n,2]，必须是整形
+    # 输出是个元组，元组共三个元素，((x_c,y_c), (edge1, edge2), theta)，都是浮点型
     
-#     rotate_boxes_wh = np.array(rotate_boxes_wh).reshape(-1,2)
+    # theta是从x轴顺时针转动碰到edge1时的角度，4.5.1版本opencv角度范围是(0°，90°]，单位不是弧度
+    # edge1, edge2不确定哪个长度更长，要自己确定
+    # 同时，可能会出现-0.0的情况，这种情况下可以当做90°，并且edge2才是旋转90°第一个遇到的边，所以edge1和edge2要互换一下
     
-#     return rotate_boxes_wh
-
-# def points2rotation_boxes(boxes_points, eps=1e-6):
-#     '''
-#     points:[N,8]
-#     '''
-#     import math
-
-#     rotate_boxes = []
-#     for id, box_points1 in enumerate(boxes_points):
-#         # 找到最小外接矩形
-#         # cv2.minAreaRect 的输入：np.array类型，shape为[n,2]，必须是整形
-#         # 输出是个元组，元组共三个元素，((x_c,y_c), (edge1, edge2), theta)，都是浮点型
-        
-#         # theta是从x轴顺时针转动碰到edge1时的角度，4.5.1版本opencv角度范围是(0°，90°]，单位不是弧度
-#         # edge1, edge2不确定哪个长度更长，要自己确定
-#         # 同时，可能会出现-0.0的情况，这种情况下可以当做90°，并且edge2才是旋转90°第一个遇到的边，所以edge1和edge2要互换一下
-        
-#         # print(f"boxes:{boxes_points.shape}, box:{box_points.shape}-{box_points}")
-#         box_points = box_points1.reshape(4,2).astype(np.int0)
-#         rotate_box = cv2.minAreaRect(box_points)
-#         (x, y), (edge1, edge2), theta = rotate_box
-        
-
-#         # 处理角度小于0的特殊情况，保证角度大于0
-#         # 处理方法：设置为90度，然后两个边互换，保证edge1是碰到的第一个边
-#         if theta < 0:
-            
-#             print(theta)
-#             print(id)
-#             print(f"角度：{theta} 小于0, box:{box_points}")
-#             theta = 90.0
-#             edge1, edge2 = edge2, edge1
-            
-#             assert theta > -eps, f"角度{theta}可以小于0，但不能太小"
-        
-#         # 处理角度约等于0的情况，保证不出现等于0的情况
-#         # 角度取整数，这点角度误差不算什么
-#         theta = round(theta)
-#         # 如果角度为0，则设置为90度，同时两个边互换，保证edge1是碰到的第一个边
-#         if theta == 0:
-#             theta = 90
-#             edge1, edge2 = edge2, edge1
-
-#         assert theta <=90 and theta >0 , f"points:{box_points}, box:{(x, y), (edge1, edge2), theta} not in (0,90]"
-#         # print(rotate_box)
-
-
-#         # 调整长短边顺序，并且把角度设置为从x轴逆时针转动碰到长边的定义
-#         # 角度转化为弧度
-#         if edge1 > edge2:
-#             w = edge1
-#             h = edge2
-#             theta = ((180-theta) / 180) * math.pi # 范围(0, 0.5pi)
-#         else:
-#             w = edge2
-#             h = edge1
-#             theta = ((90-theta) / 180) * math.pi # 范围(0.5pi, pi]
-
-#         # 归一化到[-0.25pi, 0.75pi]
-#         theta = norm_angle(theta)
-#         # # 我们采用的是S2ANet论文中的描述方法，w是长边，h是短边，逆时针转动为正，角度范围(0,pi]
-#         rotate_box = [x, y, w, h, theta]
-#         # rotate_box = [x, y, edge1, edge2, theta]
-        
-
-#         rotate_boxes.append(rotate_box)
+    # print(f"boxes:{boxes_points.shape}, box:{box_points.shape}-{box_points}")
+    box_points_temp = box_points.reshape(4,2).astype(np.int64)
     
-#     rotate_boxes = np.array(rotate_boxes).reshape(-1,5)
+    rotate_box = cv2.minAreaRect(box_points_temp)
+    (x, y), (edge1, edge2), angle = rotate_box
     
-#     return rotate_boxes
+    # 调整长短边顺序，并且把角度设置为从x轴顺时针转动碰到长边的定义
+    # 角度转化为弧度
+    if edge1 >= edge2:
+        w = edge1
+        h = edge2
+    else:
+        w = edge2
+        h = edge1
+        angle =angle + 90
 
+    angle = (angle / 180) * math.pi
 
-# def rotation_boxes2points(rotation_boxes):
-#     '''
-#     rotation_boxes:[N,5]
-#     '''
-#     import math
-
-#     boxes_points = []
-#     for rotate_box in rotation_boxes:
+    # 归一化到[-0.25pi, 0.75pi]
+    angle = norm_angle(angle)
+    # # 我们采用的是S2ANet论文中的描述方法，w是长边，h是短边，逆时针转动为正，角度范围(0,pi]
+    rotate_box = [x, y, w, h, angle]
+    # rotate_box = [x, y, edge1, edge2, theta]
         
-#         x, y, w, h, theta = rotate_box
-        
-#         ## 先从[-0.25pi, 0.75pi]转化到[0,pi]
-#         if theta <0:
-#             theta += math.pi
-
-#         assert (theta>=0) and (theta<=math.pi), f"theta:{theta} not in [0,pi]"
-
-#         # 转化为角度
-#         theta = (theta / math.pi) * 180
-        
-#         # 从逆时针为正、范围[0,pi]，转化为opencv顺时针为正、范围[0,0.5pi]的形式
-#         if theta >= 90:
-#             theta = 180 - theta
-#             edge1 = w
-#             edge2 = h
-#         else:
-#             theta = 90 - theta
-#             edge1 = h
-#             edge2 = w
-
-
-#         assert theta <=90 and theta >0 , f" theta:{rotate_box} not in (0,90]"
-#         rotate_box = ((x,y), (edge1,edge2), theta)
-
-#         # 获得四个角点的坐标
-#         box_points = cv2.boxPoints(rotate_box)
-#         # print(box_points)
-#         # print(box_points.dtype)
-#         box_points = box_points.flatten()
-
-
-#         boxes_points.append(box_points)
+    rotate_box = np.array(rotate_box).reshape(5)
     
-#     boxes_points = np.array(boxes_points).reshape(-1,8)
+    return rotate_box
+
+
+def rotated_box_to_poly_single(rotate_box):
+    '''
+    rotation_boxes:[N,5]
+    '''
+        
+    x, y, w, h, angle = rotate_box
     
-#     return boxes_points
+    ## 先从[-0.25pi, 0.75pi]转化到[0,pi]
+    if angle <0:
+        angle += math.pi
+
+    assert (angle>=0) and (angle<=math.pi), f"theta:{angle} not in [0,pi]"
+
+    # 转化为角度
+    angle = (angle / math.pi) * 180
+    
+    # 从顺时针为正、范围[0,pi]，转化为opencv顺时针为正、范围[0,0.5pi]的形式
+    if angle > 90:
+        angle = angle - 90
+        edge1 = h
+        edge2 = w
+    else:
+        edge1 = w
+        edge2 = h
+
+    assert angle <=90 and angle >=0 , f" theta:{rotate_box} not in (0,90]"
+
+    rotate_box = ((x,y), (edge1,edge2), angle)
+
+    # 获得四个角点的坐标
+    box_points = cv2.boxPoints(rotate_box)
+    # print(box_points)
+    # print(box_points.dtype)
+    box_points = box_points.flatten().reshape(8)
+    
+    return box_points
+
+
+# def poly_to_rotated_box_single(poly):
+#     """
+#     poly:[x0,y0,x1,y1,x2,y2,x3,y3]
+#     to
+#     rotated_box:[x_ctr,y_ctr,w,h,angle]
+#     """
+#     poly = np.array(poly[:8], dtype=np.float32)
+
+#     pt1 = (poly[0], poly[1])
+#     pt2 = (poly[2], poly[3])
+#     pt3 = (poly[4], poly[5])
+#     pt4 = (poly[6], poly[7])
+
+#     edge1 = np.sqrt((pt1[0] - pt2[0]) * (pt1[0] - pt2[0]) +
+#                     (pt1[1] - pt2[1]) * (pt1[1] - pt2[1]))
+#     edge2 = np.sqrt((pt2[0] - pt3[0]) * (pt2[0] - pt3[0]) +
+#                     (pt2[1] - pt3[1]) * (pt2[1] - pt3[1]))
+
+#     width = max(edge1, edge2)
+#     height = min(edge1, edge2)
+
+
+#     # np.arctan()输入的是正切值，输出的是弧度，角度范围[-0.5pi, 0.5pi]
+#     # np.arctan(x1, x2)输入的是坐标值，表示x1/x2是正切值，输出的是弧度，角度范围[-pi, pi]，因为可以根据x1和x2判断落在那个象限
+#     angle = 0
+#     if edge1 > edge2:
+#         angle = np.arctan2(
+#             np.float(pt2[1] - pt1[1]), np.float(pt2[0] - pt1[0]))
+#     elif edge2 >= edge1:
+#         angle = np.arctan2(
+#             np.float(pt4[1] - pt1[1]), np.float(pt4[0] - pt1[0]))
+
+#     angle = norm_angle(angle)
+
+#     x_ctr = np.float(pt1[0] + pt3[0]) / 2
+#     y_ctr = np.float(pt1[1] + pt3[1]) / 2
+#     rotated_box = np.array([x_ctr, y_ctr, width, height, angle])
+#     return rotated_box
+
+# def rotated_box_to_poly_single(rrect):
+#     """
+#     rrect:[x_ctr,y_ctr,w,h,angle]
+#     to
+#     poly:[x0,y0,x1,y1,x2,y2,x3,y3]
+#     """
+#     x_ctr, y_ctr, width, height, angle = rrect[:5]
+#     tl_x, tl_y, br_x, br_y = -width / 2, -height / 2, width / 2, height / 2
+#     rect = np.array([[tl_x, br_x, br_x, tl_x], [tl_y, tl_y, br_y, br_y]])
+#     R = np.array([[np.cos(angle), -np.sin(angle)],
+#                   [np.sin(angle), np.cos(angle)]])
+#     poly = R.dot(rect)
+#     x0, x1, x2, x3 = poly[0, :4] + x_ctr
+#     y0, y1, y2, y3 = poly[1, :4] + y_ctr
+#     poly = np.array([x0, y0, x1, y1, x2, y2, x3, y3], dtype=np.float32)
+#     poly = get_best_begin_point_single(poly)
+#     return poly
+
 
 # 输入角度范围为(0,pi]，归一化后角度范围为[-0.25pi, 0.75pi)之间
 def norm_angle(angle):
@@ -1001,25 +987,6 @@ def norm_angle(angle):
     ang = (angle - range[0]) % range[1] + range[0]
     return ang
 
-
-
-def rotated_box_to_poly_single(rrect):
-    """
-    rrect:[x_ctr,y_ctr,w,h,angle]
-    to
-    poly:[x0,y0,x1,y1,x2,y2,x3,y3]
-    """
-    x_ctr, y_ctr, width, height, angle = rrect[:5]
-    tl_x, tl_y, br_x, br_y = -width / 2, -height / 2, width / 2, height / 2
-    rect = np.array([[tl_x, br_x, br_x, tl_x], [tl_y, tl_y, br_y, br_y]])
-    R = np.array([[np.cos(angle), -np.sin(angle)],
-                  [np.sin(angle), np.cos(angle)]])
-    poly = R.dot(rect)
-    x0, x1, x2, x3 = poly[0, :4] + x_ctr
-    y0, y1, y2, y3 = poly[1, :4] + y_ctr
-    poly = np.array([x0, y0, x1, y1, x2, y2, x3, y3], dtype=np.float32)
-    poly = get_best_begin_point_single(poly)
-    return poly
 
 
 def rotated_box_to_poly_np(rrects):
@@ -1065,45 +1032,6 @@ def get_best_begin_point_single(coordinate):
         # print("choose one direction!")
     return np.array(combinate[force_flag]).reshape(8)
 
-
-def poly_to_rotated_box_single(poly):
-    """
-    poly:[x0,y0,x1,y1,x2,y2,x3,y3]
-    to
-    rotated_box:[x_ctr,y_ctr,w,h,angle]
-    """
-    poly = np.array(poly[:8], dtype=np.float32)
-
-    pt1 = (poly[0], poly[1])
-    pt2 = (poly[2], poly[3])
-    pt3 = (poly[4], poly[5])
-    pt4 = (poly[6], poly[7])
-
-    edge1 = np.sqrt((pt1[0] - pt2[0]) * (pt1[0] - pt2[0]) +
-                    (pt1[1] - pt2[1]) * (pt1[1] - pt2[1]))
-    edge2 = np.sqrt((pt2[0] - pt3[0]) * (pt2[0] - pt3[0]) +
-                    (pt2[1] - pt3[1]) * (pt2[1] - pt3[1]))
-
-    width = max(edge1, edge2)
-    height = min(edge1, edge2)
-
-
-    # np.arctan()输入的是正切值，输出的是弧度，角度范围[-0.5pi, 0.5pi]
-    # np.arctan(x1, x2)输入的是坐标值，表示x1/x2是正切值，输出的是弧度，角度范围[-pi, pi]，因为可以根据x1和x2判断落在那个象限
-    angle = 0
-    if edge1 > edge2:
-        angle = np.arctan2(
-            np.float(pt2[1] - pt1[1]), np.float(pt2[0] - pt1[0]))
-    elif edge2 >= edge1:
-        angle = np.arctan2(
-            np.float(pt4[1] - pt1[1]), np.float(pt4[0] - pt1[0]))
-
-    angle = norm_angle(angle)
-
-    x_ctr = np.float(pt1[0] + pt3[0]) / 2
-    y_ctr = np.float(pt1[1] + pt3[1]) / 2
-    rotated_box = np.array([x_ctr, y_ctr, width, height, angle])
-    return rotated_box
 
 def poly_to_rotated_box_np(polys):
     """

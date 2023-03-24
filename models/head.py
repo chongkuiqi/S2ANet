@@ -1,25 +1,20 @@
 import torch
 import torch.nn as nn
 
-# from torch.autograd.function import once_differentiable
-
 from models.anchors import AnchorGeneratorRotated
-from models.alignconv import AlignConv
 from models.init_weights import normal_init, bias_init_with_prob
 from models.boxes import rboxes_encode, rboxes_decode
 
 from utils.loss import SmoothL1Loss, FocalLoss
 
 from utils.bbox_nms_rotated import multiclass_nms_rotated
-from utils.metrics import bbox_iou_rotated
 
 from functools import partial
 
-from models.backbone import DetectorBackbone
-from models.neck import FPN
-
+from models.alignconv import AlignConv
 from models.orn import ORConv2d, RotationInvariantPooling
 
+from models.utils import assign_labels, split_to_levels, multi_apply
 
 def multi_apply(func, *args, **kwargs):
     # 将函数func的参数kwargs固定，返回新的函数pfunc
@@ -27,6 +22,35 @@ def multi_apply(func, *args, **kwargs):
     # 这里的args表示feats和anchor_strides两个序列，map函数会分别遍历这两个序列，然后送入pfunc函数
     map_results = map(pfunc, *args)
     return tuple(map(list, zip(*map_results)))
+
+# 根据预测的offsets和anchor，进行旋转框解码
+def fam_bbox_decode(
+        bbox_preds,
+        anchors):
+    """
+    Decode bboxes from deltas
+    :param bbox_preds: [N, 5(x,y,w,h,theta), H, W]
+    :param anchors: [H*W,5]
+    :param means: mean value to decode bbox
+    :param stds: std value to decode bbox
+    :return: [N,H,W,5]
+    """
+    num_imgs, _, feature_h, feature_w = bbox_preds.shape
+    bboxes_list = []
+    # 逐张图像进行处理
+    for img_id in range(num_imgs):
+        bbox_pred = bbox_preds[img_id]
+        # bbox_pred:[5,H,W],
+        # bbox_delta:[H,W,5]
+        bbox_delta = bbox_pred.permute(1, 2, 0).contiguous().reshape(-1, 5)
+        
+        # 根据anchors和offsets解码得到旋转框,
+        # wh_ratio_clip=1e-6会导致范围太大，从而导致回归损失飞了，因此我们采用默认的参数
+        bboxes = rboxes_decode(anchors, bbox_delta, wh_ratio_clip=1e-6)
+        # bboxes = rboxes_decode(anchors, bbox_delta)
+        bboxes = bboxes.reshape(feature_h, feature_w, 5)
+        bboxes_list.append(bboxes)
+    return torch.stack(bboxes_list, dim=0)
 
 
 class S2ANetHead(nn.Module):
@@ -242,6 +266,8 @@ class S2ANetHead(nn.Module):
         p = multi_apply(self.forward_single, feats, self.featmap_strides)
         
         
+        results = {"loss":None, "loss_items":None, "boxes_ls":None, "pred":None}
+
         # 即训练状态或者验证状态，总之需要计算损失函数
         if targets is not None:
 
@@ -253,21 +279,19 @@ class S2ANetHead(nn.Module):
             targets[:,[3,5]] = targets[:,[3,5]] * imgs_size[0]
 
             loss, loss_items = self.compute_loss(p, targets)
+            results["loss"] = loss
+            results["loss_items"] = loss_items
 
-            # 不需要后处理步骤，即训练状态，只需要损失就好了，不需要进行边界框解码和NMS
-            if not post_process:
-                return loss, loss_items
+        if post_process:
             # 验证状态，即需要损失，也需要进行边界框解码和NMS去计算mAP指标
-            else:
-                imgs_results_ls = self.get_bboxes(p)
-                return loss, loss_items, imgs_results_ls
-        # 测试状态，或者推理状态，需要进行边界框解码和NMS去计算mAP指标
-        else:
-            if post_process:
-                imgs_results_ls = self.get_bboxes(p)
-                return imgs_results_ls
-            else:
-                return p
+            imgs_results_ls = self.get_bboxes(p)
+            results["boxes_ls"] = imgs_results_ls
+        
+        # 测试状态，且不需要后处理
+        if targets is None and not post_process:
+            results["pred"] = p
+
+        return results
     
     # 经过一个特征层级的前向传播
     def forward_single(self, x, featmap_stride):
@@ -699,212 +723,3 @@ class S2ANetHead(nn.Module):
 
         return det_bboxes, det_labels
         
-
-def split_to_levels(assign_gt_ids, num_anchors_every_level):
-    '''
-      将所有特征层级的正负样本分配结果，拆分为一个列表，存储各个特征层级的分配结果
-
-    assign_gt_ids : shape:(all_levels_anchors)
-    num_anchors_every_level: 每一个特征层级的网格anchors的个数
-    '''
-
-    level_assign_gt_ids = []
-    start = 0
-    for n in num_anchors_every_level:
-        end = start + n
-        level_assign_gt_ids.append(assign_gt_ids[start:end].squeeze(0))
-        start = end
-    
-    # 是个列表，存储每一个特征层级的正负样本分配结果
-    return level_assign_gt_ids
-
-
-
-
-def assign_labels(anchors, gt_boxes, imgs_size=(1024,1024), 
-        pos_iou_thr=0.5, neg_iou_thr=0.4, min_pos_iou_thr=0, gt_max_assign_all=True,
-        filter_invalid_anchors=False, filter_invalid_ious=True
-    ):
-    '''
-    anchors shape : [M, 5], x y w h 都是以像素为单位的，角度为弧度，并且不是归一化值
-    gt_boxes shape : [N, 5]
-
-    min_pos_iou_thr: 对于那些与所有anchor的IOU都小于正样本阈值的gt，分配最大IOU的anchor来预测这个gt，
-                    但是这个最大IOU也不能太小，于是设置这个阈值
-    gt_max_assign_all: 上述情况下，gt可能与多个anchor都具有最大IOU，此时就把多个anchor都设置为正样本
-    filter_invalid_anchors: invalid_anchor是指参数超出图像边界的anchor，无效anchors设置为忽略样本
-    filter_invalid_ious ：旋转iou的计算函数有问题，范围不在[0,1.0]之间，将超出范围的iou设置为负值，从而成为忽略样本
-    return:
-        assign_gt_ids : [M], -2表示是忽略样本，-1表示是负样本，大于等于0表示是正样本，具体的数值表示是预测的哪个gt
-    '''
-
-
-    # 必须保证传入bbox_iou_rotated的参数的内存连续性
-    # 否则不会报错，但会出现计算错误，这种bug更难排查
-    if not anchors.is_contiguous():
-        anchors = anchors.contiguous()
-    if not gt_boxes.is_contiguous():
-        gt_boxes = gt_boxes.contiguous()
-
-    device = gt_boxes.device
-
-    num_anchors = anchors.shape[0]
-    num_gt_boxes = gt_boxes.shape[0]
-
-    # 标签分配的结果，一维向量，每个位置表示一个anchor，其值表示该anchor预测哪一个gt，默认全是忽略样本
-    assign_gt_ids = torch.ones(num_anchors, dtype=torch.long, device=device)*(-2)
-
-    # ## 判断anchor是否有超出图像边界的情况
-    # # 对于init_anchors没有这种问题，但对于refine_anchors可能存在超出边界的问题
-    if filter_invalid_anchors:
-        flags = (anchors[:, 0] >= 0) & \
-                (anchors[:, 1] >= 0) & \
-                (anchors[:, 2] < imgs_size[1]) & \
-                (anchors[:, 3] < imgs_size[0])    
-    
-    # 首先判断gt_boxes是否为空
-    if num_gt_boxes == 0:
-        # 如果为空，那么anchors就只有可能是负样本，或者因为anchors无效而成为忽略样本
-        # 将有效的anchors设置为负样本
-        if filter_invalid_anchors:
-            assign_gt_ids[flags] = -1
-        else:
-            assign_gt_ids[:] = -1
-
-        return assign_gt_ids
-
-    ious = bbox_iou_rotated(anchors, gt_boxes)
-
-    if filter_invalid_ious:
-        # assert torch.all((ious>=0) & (ious<=1))
-        # "iou 的值应该大于等于0，并且小于等于1"
-        if not torch.all((ious>=0) & (ious<=1)):
-            inds = (ious<0) | (ious>1)
-            # print(ious[inds])
-            # # 设置为负值, 则可以保证这一对iou值不会被标注为正样本或负样本
-            ious[inds] = -0.5
-
-        #     # print(f"处于{mode}模块下，有几个iou计算不准确")   
-    
-    # 无效的anchors的iou设置为负值，使该anchors成为忽略样本
-    if filter_invalid_anchors:
-        ious[~flags] = -0.5
-
-    # # 打印一下iou比较大的anchors和gt
-    # if torch.any(ious > 0.98):
-    #     inds_y, inds_x = torch.where(ious > 0.98)
-
-    #     print("iou>0.98")
-    #     print("anchors:", anchors[inds_y])
-    #     print("gt:", gt_boxes[inds_x])
-
-    # 下面对各种可能存在的情况进行处理
-    # 1.首先分配负样本，负样本的定义，与所有的gt的IOU都小于负样本阈值的anchor，也就是最大值都小于负样本阈值
-    # 如果最大值有2个，.max()函数只会返回第一个最大值的坐标索引
-    max_ious, argmax_ious = ious.max(dim=1)
-    assign_gt_ids[(max_ious>=0)&(max_ious<neg_iou_thr)] = -1
-    
-
-
-    # 2.然后分配正样本，正样本有两种定义
-    # （1）正样本1：一个anchor与某些gt的IOU大于pos_iou_thr：可能与多个gt的IOU都大于阈值，只选择最大IOU的gt分配给该anchor
-    # 如果最大IOU值有2个，.max()函数只会返回第一个最大值的坐标索引，因此这里我们会忽略其它的gt框
-    pos_inds = max_ious >= pos_iou_thr
-    assign_gt_ids[pos_inds] = argmax_ious[pos_inds]
-
-
-    # （2）正样本2：一个gt与所有anchor的IOU都小于正样本阈值，但是又不能不预测这个gt，所以把他分配给具有最大IOU的anchor，这个anchor也是正样本
-    # 有可能具有最大IOU阈值的anchor有多个，那么这些anchor都可以作为正样本
-    # 如果最大值有2个，.max()函数只会返回第一个最大值的坐标索引
-    gt_max_ious, gt_argmax_ious = ious.max(dim=0)
-    # 逐个gt框进行处理
-    for i in range(num_gt_boxes):
-        # 我认为这个地方设置为大于更合适，因为如果是>=，且min_pos_iou_thr=0.0，那么可能iou=0的也设置为正样本了
-        if gt_max_ious[i] > min_pos_iou_thr:
-            if gt_max_assign_all:
-                # 有可能具有最大IOU阈值的anchor有多个，那么这些anchor都可以作为正样本
-                # 找到具有最大iou的anchor
-                max_iou_ids = ious[:,i] == gt_max_ious[i]
-                # max_iou_ids = (ious[:,i] > 0) & (ious[:,i] > gt_max_ious[i] - 1e-2)
-                # 将该gt分配给这些anchor
-                assign_gt_ids[max_iou_ids] = i
-
-            else:
-                assign_gt_ids[gt_argmax_ious[i]] = i
-
-    
-    return assign_gt_ids
-
-# 根据预测的offsets和anchor，进行旋转框解码
-def fam_bbox_decode(
-        bbox_preds,
-        anchors):
-    """
-    Decode bboxes from deltas
-    :param bbox_preds: [N, 5(x,y,w,h,theta), H, W]
-    :param anchors: [H*W,5]
-    :param means: mean value to decode bbox
-    :param stds: std value to decode bbox
-    :return: [N,H,W,5]
-    """
-    num_imgs, _, feature_h, feature_w = bbox_preds.shape
-    bboxes_list = []
-    # 逐张图像进行处理
-    for img_id in range(num_imgs):
-        bbox_pred = bbox_preds[img_id]
-        # bbox_pred:[5,H,W],
-        # bbox_delta:[H,W,5]
-        bbox_delta = bbox_pred.permute(1, 2, 0).contiguous().reshape(-1, 5)
-        
-        # 根据anchors和offsets解码得到旋转框,
-        # wh_ratio_clip=1e-6会导致范围太大，从而导致回归损失飞了，因此我们采用默认的参数
-        bboxes = rboxes_decode(anchors, bbox_delta, wh_ratio_clip=1e-6)
-        # bboxes = rboxes_decode(anchors, bbox_delta)
-        bboxes = bboxes.reshape(feature_h, feature_w, 5)
-        bboxes_list.append(bboxes)
-    return torch.stack(bboxes_list, dim=0)
-
-
-class S2ANet(nn.Module):
-    def __init__(self, backbone_name="resnet50", num_classes=15):
-        super().__init__()
-        
-        # # 每个特征层级的下采样次数
-        self.stride = (8, 16, 32, 64, 128)
-        # 用于检测的每个特征层级的下采样次数
-        # self.stride = [8, 16, 32]
-        self.nl = len(self.stride)  # 检测层的个数，即neck网络输出的特征层级的个数
-
-        # backbone输出C3、C4、C5三个特征图
-        self.backbone = DetectorBackbone(backbone_name)
-
-        self.neck = FPN(num_outs=self.nl)
-
-        
-        self.head = S2ANetHead(num_classes=num_classes, featmap_strides=self.stride)
-
-
-    def forward(self, imgs, targets=None, post_process=False):
-
-        outs = self.backbone(imgs)
-        outs = self.neck(outs)
-
-        if targets is not None:
-            
-            # 不需要后处理，训练状态
-            if not post_process:
-                loss, loss_items = self.head(outs, targets=targets, imgs_size=imgs.shape[-2:], post_process=post_process)
-                return loss, loss_items
-            else:
-                loss, loss_items, imgs_results_ls = self.head(outs, targets=targets, imgs_size=imgs.shape[-2:], post_process=post_process)
-                return loss, loss_items, imgs_results_ls
-        # 测试状态，不需要损失，但是需要进行后处理计算mAP
-        else:
-            
-            if post_process:
-                imgs_results_ls = self.head(outs, post_process=post_process)
-                return imgs_results_ls
-            else:
-                p = self.head(outs, post_process=post_process)
-                return p
-

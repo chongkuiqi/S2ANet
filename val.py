@@ -1,4 +1,4 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+
 """
 Validate a trained YOLOv5 model accuracy on a custom dataset
 
@@ -19,6 +19,8 @@ import torch
 from tqdm import tqdm
 
 from utils.datasets_rotation import img_batch_normalize
+import matplotlib.pyplot as plt
+
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -38,7 +40,7 @@ from utils.general import scale_coords_rotated, rotated_box_to_poly_single
 from DOTA_devkit.ResultMerge_multi_process import mergebypoly
 from DOTA_devkit.dota_evaluation_task1 import voc_eval
 
-import matplotlib.pyplot as plt
+
 
 
 def save_per_class(imgs_results_ls, dst_raw_path, classes_names_id:dict):
@@ -171,9 +173,9 @@ def run(data,
             # exit()
 
             # state_dict = torch.load(weights, map_location=device)["model"].state_dict()
-            from models.s2anet import S2ANet
+            from models.detector import S2ANet as Model
             num_classes = data['nc']
-            model = S2ANet(num_classes=num_classes).to(device) # create
+            model = Model(num_classes=num_classes).to(device) # create
 
             def intersect_dicts(model_state_dict, pretrained_state_dict, exclude=()):
                 assert len(model_state_dict.items()) == len(pretrained_state_dict.items())
@@ -246,18 +248,18 @@ def run(data,
     
     # 存储整个数据集的推理结果
     imgs_results_ls_save = []
-    for batch_i, (im, targets, paths, shapes0) in enumerate(pbar):
+    for batch_i, (imgs, targets, paths, shapes0) in enumerate(pbar):
         
         # if batch_i > 1:
         #     break
         # 前处理的时间
         t1 = time_sync()
         if pt or jit or engine:
-            im = im.to(device, non_blocking=True)
+            imgs = imgs.to(device, non_blocking=True)
             targets = targets.to(device)
-        im = im.half() if half else im.float()  # uint8 to fp16/32
+        imgs = imgs.half() if half else imgs.float()  # uint8 to fp16/32
         # im /= 255  # 0 - 255 to 0.0 - 1.0
-        im = img_batch_normalize(im)
+        imgs = img_batch_normalize(imgs)
 
         # nb, _, height, width = im.shape  # batch size, channels, height, width
         t2 = time_sync()
@@ -265,7 +267,9 @@ def run(data,
 
         # Inference， 推理过程+后处理过程
         # out, train_out = model(im) if training else model(im, augment=augment, val=True)  # inference, loss outputs
-        _, loss_items, imgs_results_ls = model(im, targets, post_process=True)
+        results = model(imgs, targets, post_process=True)
+        loss_items = results["loss_items"]
+        imgs_results_ls = results["boxes_ls"]
 
         # k,v = next(model.named_parameters())
         # print(v.dtype)
@@ -284,7 +288,7 @@ def run(data,
             img_pathname, shape0, ratio_pad = Path(paths[img_id]), shapes0[img_id][0], shapes0[img_id][1]
             
             # 输入图像尺寸上的边界框坐标，转化为原始图像尺寸上的坐标
-            scale_coords_rotated(im[img_id].shape[1:], det_bboxes, shape0, ratio_pad)
+            scale_coords_rotated(imgs[img_id].shape[1:], det_bboxes, shape0, ratio_pad)
             img_name = os.path.basename(img_pathname)
             det_bboxes = det_bboxes.reshape(-1,6).tolist()
             det_labels = det_labels.reshape(-1).tolist()
@@ -305,6 +309,7 @@ def run(data,
     
     
     save_per_class(imgs_results_ls_save, dst_raw_path, classes_names_id)
+
     if is_mAP_split:
 
         ## 下面计算精度指标mAP
@@ -412,6 +417,8 @@ def run(data,
     # LOGGER.info(pf % ('all', seen, nt.sum(), mp, mr, map50, mf1))
     pf = '%20s' + '%11.3g' * 5  # print format
     LOGGER.info(pf % ('all', mp, mr, map50, mf1, conf))
+
+
 
     # print(classes_ap50s)
 

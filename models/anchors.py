@@ -2,6 +2,7 @@
 import torch
 import math
 
+
 class AnchorGeneratorRotated(object):
     def __init__(self, anchor_base_size, scales, ratios=[1.0,], angles=[0,],scale_major=True):
         '''
