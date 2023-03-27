@@ -4,6 +4,11 @@ A reimplementation of the S2ANet algorithm for Oriented Object Detection.
 
 **Note:** Support **DDP training** and **Auto Mixed Precision** in Pytorch, so the training is faster!
 
+We release the latest version !
+- To normalize the inputing data, the images are divided by 255.0, instead of using `mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375]`, so we don't need to storage the mean and std in inference. 
+- In training phase, we don't freeze parameters in the first stage of ResNet, which will add a little more training time. 
+- DDP training are more stable. 
+
 ## 1. Environment dependency  
 
 Our environment:  Ubuntu18.04 + pytorch1.7 + cuda10.2  
@@ -108,7 +113,7 @@ your_dir
 ```
 
 ## 4. Train S2ANet model  
-
+Most of the time, there is no need to modify the learning rate when setting different batch-size.
 ### (1) Single-GPU
 
 ```bash
@@ -121,7 +126,14 @@ python train.py
 **Note:** We support pytorch Multi-GPU DistributedDataParallel Mode !  
 
 ```bash
-python -m torch.distributed.launch --nproc_per_node 2 train.py --device 0,1
+python -m torch.distributed.launch --nproc_per_node 2 train.py --device 0,1 --batch-size 16
+```
+
+If you get `RuntimeError: Address already in use`, use a different port number by adding --master_port like below,
+
+```bash
+python -m torch.distributed.launch --master_port 1234 --nproc_per_node 2 ...
+
 ```
 
 ## 5. Results and trained weights on DOTA dataset  
@@ -133,6 +145,7 @@ python -m torch.distributed.launch --nproc_per_node 2 train.py --device 0,1
 | S2ANet (paper)      | R-50-FPN | train+val set | 74.04(test set) | ------   |
 | S2ANet (paper)      | R-50-FPN | train set     | 70.2(val set)  | ------   |
 | S2ANet (this impl.) | R-50-FPN | train set     | 70.2(val set) | [model](https://drive.google.com/file/d/1Vb50k5zp_WyC-u5lwtN11xzgwOwhQLS_/view?usp=sharing) |
+| S2ANet (latest)     | R-50-FPN | train set     | 70.7(val set) | [model](https://drive.google.com/file/d/1qCG3mIw5Nrz_yxCoyrjFfBQ5LVru7wJq/view?usp=share_link) |
 
 ## 6.Refenerce
 

@@ -16,8 +16,8 @@ class S2ANet(nn.Module):
         # self.stride = [8, 16, 32]
         self.nl = len(self.stride)  # 检测层的个数，即neck网络输出的特征层级的个数
 
-        # backbone输出C3、C4、C5三个特征图
-        self.backbone = DetectorBackbone(backbone_name)
+        # backbone输出C3、C4、C5三个特征图，不冻结backbone网络的前几层
+        self.backbone = DetectorBackbone(backbone_name, frozen_stages=-1)
 
         self.neck = FPN(num_outs=self.nl)
 

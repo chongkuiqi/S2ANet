@@ -1,14 +1,4 @@
 
-"""
-Validate a trained YOLOv5 model accuracy on a custom dataset
-
-Usage:
-    $ python path/to/val.py --weights yolov5s.pt --data coco128.yaml --img 640
-
-Usage - formats:
-    $ python path/to/val.py --weights yolov5s.pt                 # PyTorch
-"""
-
 import argparse
 import os
 import sys
@@ -18,7 +8,6 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from utils.datasets_rotation import img_batch_normalize
 import matplotlib.pyplot as plt
 
 
@@ -28,11 +17,9 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-# from models.common import DetectMultiBackend
 from utils.datasets_rotation import create_dataloader
 from utils.general import (LOGGER, check_dataset, check_img_size, check_yaml,
                            colorstr, increment_path, print_args)
-# from utils.plots import  plot_val_study
 from utils.torch_utils import select_device, time_sync
 
 import os.path as osp
@@ -40,8 +27,7 @@ from utils.general import scale_coords_rotated, rotated_box_to_poly_single
 from DOTA_devkit.ResultMerge_multi_process import mergebypoly
 from DOTA_devkit.dota_evaluation_task1 import voc_eval
 
-
-
+from models.detector import S2ANet as Model
 
 def save_per_class(imgs_results_ls, dst_raw_path, classes_names_id:dict):
     # print('Saving results to {}'.format(dst_raw_path))
@@ -173,7 +159,7 @@ def run(data,
             # exit()
 
             # state_dict = torch.load(weights, map_location=device)["model"].state_dict()
-            from models.detector import S2ANet as Model
+            
             num_classes = data['nc']
             model = Model(num_classes=num_classes).to(device) # create
 
@@ -258,8 +244,7 @@ def run(data,
             imgs = imgs.to(device, non_blocking=True)
             targets = targets.to(device)
         imgs = imgs.half() if half else imgs.float()  # uint8 to fp16/32
-        # im /= 255  # 0 - 255 to 0.0 - 1.0
-        imgs = img_batch_normalize(imgs)
+        imgs /= 255  # 0 - 255 to 0.0 - 1.0
 
         # nb, _, height, width = im.shape  # batch size, channels, height, width
         t2 = time_sync()
@@ -371,14 +356,17 @@ def run(data,
 
         f1 = 2 * recall * precision / (recall + precision + 1e-16)
         # 这里可以画PR曲线了
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        ax.plot(recall, precision)
-        ax.set_xlabel('Recall')
-        ax.set_ylabel('Precision')
-        ax.set_xlim(0, 1.01)
-        ax.set_ylim(0, 1.01)
+        fig = plt.figure(figsize=(5, 5))#生成一个空白图形并且将其赋值给fig对象
+        plt.plot(recall, precision)
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.xlim(0, 1.01)
+        plt.ylim(0, 1.01)
+
         fig.tight_layout()
         fig.savefig(save_dir / 'PR_curve.png', dpi=300)
+        plt.close()
+        
 
 
         # print(f"{classname} f1:{f1[-1]}")
@@ -439,14 +427,9 @@ def run(data,
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    # parser.add_argument('--data', type=str, default=ROOT / 'data/dota.yaml', help='dataset.yaml path')
-    parser.add_argument('--data', type=str, default=ROOT / 'data/LAR1024.yaml', help='dataset.yaml path')
-    # parser.add_argument('--data', type=str, default=ROOT / 'data/dota_map.yaml', help='dataset.yaml path')
+    parser.add_argument('--data', type=str, default=ROOT / 'data/dota.yaml', help='dataset.yaml path')
 
-    # parser.add_argument('--weights', type=str, default=ROOT / 'runs/train/exp40/weights/best.pt', help='initial weights path')
-    parser.add_argument('--weights', type=str, default=ROOT / 'runs/train/exp233/weights/best.pt', help='initial weights path')
-    # parser.add_argument('--weights', type=str, default='/home/lab/ckq/S2ANet_offical/work_dirs/s2anet_r50_fpn_1x_ms_rotate_vehicle/exp9/epoch_3.pth', help='initial weights path')
-    # parser.add_argument('--weights', type=str, default='/home/lab/ckq/S2ANet_offical/work_dirs/s2anet_r50_fpn_1x_dota/exp1/epoch_11.pth', help='initial weights path')
+    parser.add_argument('--weights', type=str, default=ROOT / 'runs/train/exp25/weights/best.pt', help='initial weights path')
 
     # 是否以切图的方式计算mAP
     parser.add_argument('--is_mAP_split', action='store_true', default=True)

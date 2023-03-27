@@ -883,7 +883,6 @@ def poly_to_rotated_box_single(box_points, eps=1e-6):
     
     return rotate_box
 
-
 def rotated_box_to_poly_single(rotate_box):
     '''
     rotation_boxes:[N,5]
@@ -920,64 +919,6 @@ def rotated_box_to_poly_single(rotate_box):
     box_points = box_points.flatten().reshape(8)
     
     return box_points
-
-
-# def poly_to_rotated_box_single(poly):
-#     """
-#     poly:[x0,y0,x1,y1,x2,y2,x3,y3]
-#     to
-#     rotated_box:[x_ctr,y_ctr,w,h,angle]
-#     """
-#     poly = np.array(poly[:8], dtype=np.float32)
-
-#     pt1 = (poly[0], poly[1])
-#     pt2 = (poly[2], poly[3])
-#     pt3 = (poly[4], poly[5])
-#     pt4 = (poly[6], poly[7])
-
-#     edge1 = np.sqrt((pt1[0] - pt2[0]) * (pt1[0] - pt2[0]) +
-#                     (pt1[1] - pt2[1]) * (pt1[1] - pt2[1]))
-#     edge2 = np.sqrt((pt2[0] - pt3[0]) * (pt2[0] - pt3[0]) +
-#                     (pt2[1] - pt3[1]) * (pt2[1] - pt3[1]))
-
-#     width = max(edge1, edge2)
-#     height = min(edge1, edge2)
-
-
-#     # np.arctan()输入的是正切值，输出的是弧度，角度范围[-0.5pi, 0.5pi]
-#     # np.arctan(x1, x2)输入的是坐标值，表示x1/x2是正切值，输出的是弧度，角度范围[-pi, pi]，因为可以根据x1和x2判断落在那个象限
-#     angle = 0
-#     if edge1 > edge2:
-#         angle = np.arctan2(
-#             np.float(pt2[1] - pt1[1]), np.float(pt2[0] - pt1[0]))
-#     elif edge2 >= edge1:
-#         angle = np.arctan2(
-#             np.float(pt4[1] - pt1[1]), np.float(pt4[0] - pt1[0]))
-
-#     angle = norm_angle(angle)
-
-#     x_ctr = np.float(pt1[0] + pt3[0]) / 2
-#     y_ctr = np.float(pt1[1] + pt3[1]) / 2
-#     rotated_box = np.array([x_ctr, y_ctr, width, height, angle])
-#     return rotated_box
-
-# def rotated_box_to_poly_single(rrect):
-#     """
-#     rrect:[x_ctr,y_ctr,w,h,angle]
-#     to
-#     poly:[x0,y0,x1,y1,x2,y2,x3,y3]
-#     """
-#     x_ctr, y_ctr, width, height, angle = rrect[:5]
-#     tl_x, tl_y, br_x, br_y = -width / 2, -height / 2, width / 2, height / 2
-#     rect = np.array([[tl_x, br_x, br_x, tl_x], [tl_y, tl_y, br_y, br_y]])
-#     R = np.array([[np.cos(angle), -np.sin(angle)],
-#                   [np.sin(angle), np.cos(angle)]])
-#     poly = R.dot(rect)
-#     x0, x1, x2, x3 = poly[0, :4] + x_ctr
-#     y0, y1, y2, y3 = poly[1, :4] + y_ctr
-#     poly = np.array([x0, y0, x1, y1, x2, y2, x3, y3], dtype=np.float32)
-#     poly = get_best_begin_point_single(poly)
-#     return poly
 
 
 # 输入角度范围为(0,pi]，归一化后角度范围为[-0.25pi, 0.75pi)之间

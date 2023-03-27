@@ -1,4 +1,3 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 Plotting utils
 """
@@ -21,7 +20,6 @@ from utils.general import (CONFIG_DIR, FONT, LOGGER, Timeout, check_font, check_
                            increment_path, try_except, xywh2xyxy, xyxy2xywh)
 # from utils.metrics import fitness
 from utils.general import rotated_box_to_poly_np, poly_to_rotated_box_np
-from utils.datasets_rotation import img_batch_denormalize
 
 # Settings
 RANK = int(os.getenv('RANK', -1))
@@ -176,17 +174,14 @@ def output_to_target(output):
 
 def plot_images_rotate(images, targets, paths=None, fname='images.jpg', names=None, max_size=1920, max_subplots=16):
     
-    # 反标准化
-    images = img_batch_denormalize(images)
-
     # Plot image grid with labels
     if isinstance(images, torch.Tensor):
         images = images.cpu().float().numpy()
     if isinstance(targets, torch.Tensor):
         targets = targets.cpu().numpy()
     
-    # if np.max(images[0]) <= 1:
-    #     images *= 255  # de-normalise (optional)
+    if np.max(images[0]) <= 1:
+        images *= 255  # de-normalise (optional)
 
     bs, _, img_h, img_w = images.shape  # batch size, _, height, width
     bs = min(bs, max_subplots)  # limit plot images

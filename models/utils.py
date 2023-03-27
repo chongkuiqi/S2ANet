@@ -32,7 +32,7 @@ def split_to_levels(assign_gt_ids, num_anchors_every_level):
 
 def assign_labels(anchors, gt_boxes, imgs_size=(1024,1024), 
         pos_iou_thr=0.5, neg_iou_thr=0.4, min_pos_iou_thr=0, gt_max_assign_all=True,
-        filter_invalid_anchors=False, filter_invalid_ious=True
+        filter_invalid_anchors=True, filter_invalid_ious=True
     ):
     '''
     anchors shape : [M, 5], x y w h 都是以像素为单位的，角度为弧度，并且不是归一化值
@@ -68,6 +68,8 @@ def assign_labels(anchors, gt_boxes, imgs_size=(1024,1024),
     if filter_invalid_anchors:
         flags = (anchors[:, 0] >= 0) & \
                 (anchors[:, 1] >= 0) & \
+                (anchors[:, 0] <= imgs_size[1]) & \
+                (anchors[:, 1] <= imgs_size[0]) & \
                 (anchors[:, 2] < imgs_size[1]) & \
                 (anchors[:, 3] < imgs_size[0])    
     

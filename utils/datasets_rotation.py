@@ -1,4 +1,3 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 Dataloaders and dataset utils
 """
@@ -767,62 +766,3 @@ def plot_rotate_boxes(img, boxes_points, cls_fall_point=0, color=(0, 0, 255), th
 
     return img
 
-
-
-
-# # 标准化操作
-# 图像标准化操作
-def img_normalize(img):
-    # img_normalize_mean =  np.array([123.675, 116.28, 103.53], dtype=np.float32).reshape(3,1,1)
-    # img_normalize_std = np.array([58.395, 57.12, 57.375], dtype=np.float32).reshape(3,1,1)
-    # img = (img - img_normalize_mean) / img_normalize_std
-
-    img_normalize_mean =  [123.675, 116.28, 103.53]
-    img_normalize_std = [58.395, 57.12, 57.375]
-
-    img[0,:,:] = (img[0,:,:] - img_normalize_mean[0]) / img_normalize_std[0]
-    img[1,:,:] = (img[1,:,:] - img_normalize_mean[1]) / img_normalize_std[1]
-    img[2,:,:] = (img[2,:,:] - img_normalize_mean[2]) / img_normalize_std[2]
-
-    return img
-
-def img_denormalize(img):
-    
-    img_normalize_mean =  [123.675, 116.28, 103.53]
-    img_normalize_std = [58.395, 57.12, 57.375]
-
-    img[0,:,:] = (img[0,:,:] * img_normalize_std[0]) + img_normalize_mean[0]
-    img[1,:,:] = (img[1,:,:] * img_normalize_std[1]) + img_normalize_mean[1]
-    img[2,:,:] = (img[2,:,:] * img_normalize_std[2]) + img_normalize_mean[2]
-    
-    img = img.clip(0.0,255.0)
-
-    return img
-
-def img_batch_normalize(img):
-    # img_normalize_mean =  np.array([123.675, 116.28, 103.53], dtype=np.float32).reshape(3,1,1)
-    # img_normalize_std = np.array([58.395, 57.12, 57.375], dtype=np.float32).reshape(3,1,1)
-    # img = (img - img_normalize_mean) / img_normalize_std
-
-    img_normalize_mean =  [123.675, 116.28, 103.53]
-    img_normalize_std = [58.395, 57.12, 57.375]
-
-    img[:,0,:,:] = (img[:,0,:,:] - img_normalize_mean[0]) / img_normalize_std[0]
-    img[:,1,:,:] = (img[:,1,:,:] - img_normalize_mean[1]) / img_normalize_std[1]
-    img[:,2,:,:] = (img[:,2,:,:] - img_normalize_mean[2]) / img_normalize_std[2]
-
-    return img
-
-
-def img_batch_denormalize(img):
-    
-    img_normalize_mean =  [123.675, 116.28, 103.53]
-    img_normalize_std = [58.395, 57.12, 57.375]
-
-    img[:,0,:,:] = (img[:,0,:,:] * img_normalize_std[0]) + img_normalize_mean[0]
-    img[:,1,:,:] = (img[:,1,:,:] * img_normalize_std[1]) + img_normalize_mean[1]
-    img[:,2,:,:] = (img[:,2,:,:] * img_normalize_std[2]) + img_normalize_mean[2]
-    
-    img = img.clip(0.0,255.0)
-
-    return img

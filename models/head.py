@@ -45,7 +45,6 @@ def fam_bbox_decode(
         bbox_delta = bbox_pred.permute(1, 2, 0).contiguous().reshape(-1, 5)
         
         # 根据anchors和offsets解码得到旋转框,
-        # wh_ratio_clip=1e-6会导致范围太大，从而导致回归损失飞了，因此我们采用默认的参数
         bboxes = rboxes_decode(anchors, bbox_delta, wh_ratio_clip=1e-6)
         # bboxes = rboxes_decode(anchors, bbox_delta)
         bboxes = bboxes.reshape(feature_h, feature_w, 5)
@@ -430,6 +429,8 @@ class S2ANetHead(nn.Module):
         # ODM模块的损失进行加权，以平衡和FAM模块的损失
         odm_cls_loss *= self.odm_balance
         odm_reg_loss *= self.odm_balance
+
+
 
         total_loss = fam_cls_loss + fam_reg_loss + odm_cls_loss + odm_reg_loss
         return total_loss, torch.cat((fam_cls_loss,fam_reg_loss,odm_cls_loss,odm_reg_loss)).detach().cpu().numpy()

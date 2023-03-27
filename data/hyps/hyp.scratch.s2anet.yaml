@@ -1,6 +1,5 @@
 
-# 官方设置，batch_size=2, 0.01lr=0.0025lr*4GPU, 0.0025lr=0.0025lr*1GPU, 0.02lr=0.0025lr*8GPU
-# 一张卡，每张卡8张图像，则学习率应为0.01
+# 在本代码中，调整batch-size时，学习率可以不用调整
 lr0: 0.005  # initial learning rate (SGD=1E-2, Adam=1E-3)
 lrf: 0.005  # final OneCycleLR learning rate (lr0 * lrf)
 momentum: 0.9  # SGD momentum/Adam beta1
@@ -15,7 +14,7 @@ warmup_bias_lr: 0.0  # warmup initial bias lr
 hsv_h: 0.0  # image HSV-Hue augmentation (fraction)
 hsv_s: 0.0  # image HSV-Saturation augmentation (fraction)
 hsv_v: 0.0  # image HSV-Value augmentation (fraction)
-degrees: 180  # image rotation (+/- deg)
+degrees: 180.0  # random angle in [-180, -90, 0, 90]
 translate: 0.0  # image translation (+/- fraction)
 scale: 0.0  # image scale (+/- gain)
 shear: 0.0  # image shear (+/- deg)

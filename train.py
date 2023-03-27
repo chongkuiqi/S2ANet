@@ -1,4 +1,3 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 
 import argparse
 
@@ -31,7 +30,7 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 import val  # for end-of-epoch mAP
 from utils.callbacks import Callbacks
-from utils.datasets_rotation import create_dataloader, img_batch_normalize
+from utils.datasets_rotation import create_dataloader
 from utils.general import (LOGGER, check_dataset, check_file, check_img_size,
                            check_suffix, check_yaml, colorstr, get_latest_run, increment_path, init_seeds,
                            intersect_dicts, methods, one_cycle,
@@ -63,8 +62,8 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
           device,
           callbacks
           ):
-    save_dir, epochs, batch_size, weights, single_cls, data, model_yaml, resume, noval, nosave, workers, freeze = \
-        Path(opt.save_dir), opt.epochs, opt.batch_size, opt.weights, opt.single_cls, opt.data, opt.cfg, \
+    save_dir, epochs, batch_size, weights, single_cls, data, resume, noval, nosave, workers, freeze = \
+        Path(opt.save_dir), opt.epochs, opt.batch_size, opt.weights, opt.single_cls, opt.data, \
         opt.resume, opt.noval, opt.nosave, opt.workers, opt.freeze
 
     # 是否使用混合精度训练
@@ -128,7 +127,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         # 更改模型
         model = Model(num_classes=num_classes).to(device) # create
 
-        # exclude = ['anchor'] if (model_yaml or hyp.get('anchors')) and not resume else []  # exclude keys
+        # exclude = ['anchor'] if hyp.get('anchors') and not resume else []  # exclude keys
         # # BN层的num_batches_tracked参数不导入
         # exclude = ['num_batches_tracked']
         exclude = []
@@ -244,10 +243,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
     # Process 0
     if RANK in [-1, 0]:
-        # val_loader = create_dataloader(val_path, imgsz, batch_size // WORLD_SIZE * 2, gs, single_cls,
-        #                                hyp=hyp, cache=None if noval else opt.cache, rect=True, rank=-1,
-        #                                workers=workers, pad=0.5,
-        #                                prefix=colorstr('val: '))[0]
         # 这里我们不进行方形的推理
         val_loader = create_dataloader(val_path, imgsz, batch_size // WORLD_SIZE * 2, gs, single_cls,
                                        hyp=hyp, cache=None if noval else opt.cache, rect=opt.rect, rank=-1,
@@ -321,51 +316,15 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             pbar = tqdm(pbar, total=nb, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
         optimizer.zero_grad()
         
-        # # 可视化
-        # # # /home/lab/ckq/DOTA_split/images/P1057__1.0__824___1648.png
-        # targets_visual_save_dir = "/home/lab/ckq/LARVehicle/LAR1024/" + "/visual/"
-        # if not os.path.exists(targets_visual_save_dir):
-        #     os.mkdir(targets_visual_save_dir)
+
         for i, (imgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
-            # if i> 1:
-            #     break
-            # for img_id, img_pathname in enumerate(paths):
-            #     img = imgs[img_id].cpu().numpy()
-            #     img = img[::-1].transpose((1, 2, 0))  # CHW to HWC, RGB ro BGR
-            #     img = np.ascontiguousarray(img)
-            #     img_targets = targets[targets[:,0]==img_id].cpu().numpy()
-
-            #     rotate_boxes = img_targets[:, 2:7]
-            #     rotate_boxes[:, [0,2]] *= img.shape[1]
-            #     rotate_boxes[:, [1,3]] *= img.shape[0]
-            #     # 转化为点
-            #     rotate_boxes = rotated_box_to_poly_np(rotate_boxes)
-
-            #     plot_rotate_boxes(img, rotate_boxes)
-
-            #     save_img_pathname = targets_visual_save_dir + os.path.basename(img_pathname).replace(".png", ".jpg", 1)
-            #     cv2.imwrite(save_img_pathname, img)
-            # continue
-
 
             ni = i + nb * epoch  # number integrated batches (since train start)
-            # imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
-            imgs = imgs.to(device, non_blocking=True).float()
-
-            imgs = img_batch_normalize(imgs)
-            # img_max = imgs.max()
-            # img_min = imgs.min()
-            # print(f"img_max:{img_max}, img_min:{img_min}")
+            imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
             # Warmup
             if ni <= nw:
                 xi = [0, nw]  # x interp
-                # accumulate = max(1, np.interp(ni, xi, [1, nominal_bs / batch_size]).round())
-                # for j, x in enumerate(optimizer.param_groups):
-                #     # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                #     x['lr'] = np.interp(ni, xi, [hyp['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
-                #     if 'momentum' in x:
-                #         x['momentum'] = np.interp(ni, xi, [hyp['warmup_momentum'], hyp['momentum']])
                 for j, x in enumerate(optimizer.param_groups):
                     k = (1 - ni / nw) * (1 - 1.0/3)
                     x['lr'] = (1-k) * x['initial_lr'] * lf(epoch)
@@ -382,22 +341,15 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             # Forward
             with amp.autocast(enabled=is_MAP):
                 # 混合精度训练，要求输入图像和模型都是torch.float32类型
-                # 改为S2ANet代码
                 results = model(imgs, targets.to(device))
                 loss = results["loss"] 
                 loss_items = results["loss_items"]
 
-                # print(loss)
-                # print(loss_items)
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
                     loss *= 4.
 
-            # # 找到reg回归损失突变的图像
-            # if loss_items[-1] > 126:
-            #     print(paths)
-            #     # exit()
             # Backward
             # 对损失乘以一个scale因子，然后再进行反向传播计算梯度。乘以scale因子，可以避免float16梯度出现underflow的情况
             scaler.scale(loss).backward()
@@ -524,13 +476,10 @@ def parse_opt(known=False):
     parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch.s2anet.yaml', help='hyperparameters path')
 
     parser.add_argument('--data', type=str, default=ROOT / 'data/dota.yaml', help='dataset.yaml path')
-
-    # parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
-    parser.add_argument('--cfg', type=str, default=ROOT / 'models/s2anet.yaml', help='model.yaml path')
     
 
     parser.add_argument('--epochs', type=int, default=12)
-    parser.add_argument('--batch-size', type=int, default=4, help='total batch size for all GPUs, -1 for autobatch')
+    parser.add_argument('--batch-size', type=int, default=8, help='total batch size for all GPUs, -1 for autobatch')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=1024, help='train, val image size (pixels)')
 
     # 学习率衰减方案，只有三种，余弦、线性、阶段
@@ -598,18 +547,18 @@ def main(opt, callbacks=Callbacks()):
     if RANK in [-1, 0]:
         print_args(FILE.stem, opt)
 
+    # print(f"RANK:{RANK}")
     # Resume
     if opt.resume and not check_wandb_resume(opt) and not opt.evolve:  # resume an interrupted run
         ckpt = opt.resume if isinstance(opt.resume, str) else get_latest_run()  # specified or most recent path
         assert os.path.isfile(ckpt), 'ERROR: --resume checkpoint does not exist'
         with open(Path(ckpt).parent.parent / 'opt.yaml', errors='ignore') as f:
             opt = argparse.Namespace(**yaml.safe_load(f))  # replace
-        opt.cfg, opt.weights, opt.resume = '', ckpt, True  # reinstate
+        opt.weights, opt.resume =  ckpt, True  # reinstate
         LOGGER.info(f'Resuming training from {ckpt}')
     else:
-        opt.data, opt.cfg, opt.hyp, opt.weights, opt.project = \
-            check_file(opt.data), check_yaml(opt.cfg), check_yaml(opt.hyp), str(opt.weights), str(opt.project)  # checks
-        assert len(opt.cfg) or len(opt.weights), 'either --cfg or --weights must be specified'
+        opt.data, opt.hyp, opt.weights, opt.project = \
+            check_file(opt.data), check_yaml(opt.hyp), str(opt.weights), str(opt.project)  # checks
         opt.save_dir = str(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))
 
     # DDP mode

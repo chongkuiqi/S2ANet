@@ -58,7 +58,7 @@ class Loggers():
         # Message
         if not wandb:
             prefix = colorstr('Weights & Biases: ')
-            s = f"{prefix}run 'pip install wandb' to automatically track and visualize YOLOv5 🚀 runs (RECOMMENDED)"
+            s = f"{prefix}run 'pip install wandb' to automatically track and visualize S2ANet 🚀 runs (RECOMMENDED)"
             print(emojis(s))
 
         # TensorBoard
@@ -96,7 +96,7 @@ class Loggers():
 
                         # 进行一次前向传播，torch.jit.trace跟踪记录模型的操作
                         # 这里不记录了，因为s2anet模型的输入参数太多，不好写
-                        self.tb.add_graph(torch.jit.trace(de_parallel(model), imgs[0:1], strict=False), [])
+                        # self.tb.add_graph(torch.jit.trace(de_parallel(model), imgs[0:1], strict=False), [])
             if ni < 3:
                 f = self.save_dir / f'train_batch{ni}.jpg'  # filename
                 Thread(target=plot_images_rotate, args=(imgs, targets, paths, f), daemon=True).start()
